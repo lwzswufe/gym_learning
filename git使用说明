@@ -1,0 +1,4 @@
+cd target_dir
+git add *.py
+git commit -m "message"
+git push https://github.com/lwzswufe/gym_learning.git
