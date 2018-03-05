@@ -2,3 +2,5 @@ cd target_dir
 git add *.py
 git commit -m "message"
 git push https://github.com/lwzswufe/gym_learning.git
+git rm --cached xx.py 远程删除文件
+git rm -r venv  远程删除文件夹
