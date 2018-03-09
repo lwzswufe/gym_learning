@@ -18,12 +18,13 @@ import gym, time, random
 env = gym.make('GridMaze-v0')
 env.reset()
 actions = ['n', 'e', 's', 'w']
-for i in range(500):
-    time.sleep(0.05)
+for i in range(1000):
+    time.sleep(0.01)
     action = actions[random.randint(0, 3)]
     next_state, r, is_terminal, _ = env.step(action)
 
     if is_terminal:
+        time.sleep(0.1)
         env.reset()
         print("times: {} state:{} return:{}".format(i, next_state, r))
     else:

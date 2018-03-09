@@ -16,21 +16,37 @@ class GridMaze(gym.Env):
         'video.frames_per_second': 2
     }
 
-    def __init__(self, width=5, height=5):
+    def __init__(self, width=15, height=15):
         grid_num = width * height
         self.grid_num = grid_num
-        grid_width = int((500 - 100) / width)
+        self.q_value = numpy.zeros(grid_num)
+        blank_width = 50
+        x_max = 600 + blank_width
+        grid_width = int((x_max - blank_width) / width)
         grid_height = grid_width
-        top = int(100 + grid_height * height)
+        self.grid_width = grid_width
+
+        x_max = int(blank_width + grid_width * width)
+        y_max = int(blank_width + grid_height * height)
         self.states = list(range(grid_num))  # 状态空间
-        self.x = [100 + (0.5 + (i % width)) * grid_width for i in range(grid_num)]
+        self.x = [blank_width + (0.5 + (i % width)) * grid_width for i in range(grid_num)]
         # 中心坐标参数
-        self.y = [top - (0.5 + numpy.floor(i / width)) * grid_height for i in range(grid_num)]
+        self.y = [y_max - (0.5 + numpy.floor(i / width)) * grid_height for i in range(grid_num)]
         # 中心坐标参数
 
-        self.wall_states = [3, 8, 10, 11, 22, 23, 24]
+        if width != 5 and height != 5:
+            is_random = True
+        else:
+            is_random = False
 
-        terminate_states = [14]
+        terminate_states = []
+        if is_random:
+            self.wall_states = random.sample(range(grid_num), int(grid_num / 4))
+            terminate_states.append(self.wall_states.pop(-1))
+        else:
+            self.wall_states = [3, 8, 10, 11, 22, 23, 24]
+            terminate_states = [14]
+
         self.terminate_states = dict()  # 终止状态为字典格式
         for key in terminate_states:
             self.terminate_states[key] = 1
@@ -77,29 +93,34 @@ class GridMaze(gym.Env):
         self.viewer = None
         self.state = None
 
-        self.screen_height = top + 100
-        self.screen_width = 600
+        self.screen_height = y_max + blank_width
+        self.screen_width = x_max + blank_width
         self.Lines = []  # 设置线
 
         for i in range(height + 1):
-            Line = rendering.Line((100, top - i * grid_height), (500, top - i * grid_height))
+            Line = rendering.Line((blank_width, y_max - i * grid_height), (x_max, y_max - i * grid_height))
             Line.set_color(0, 0, 0)
             self.Lines.append(Line)
 
         for j in range(width + 1):
-            Line = rendering.Line((100 + j * grid_width, top), (100 + j * grid_width, 100))
+            Line = rendering.Line((blank_width + j * grid_width, y_max), (blank_width + j * grid_width, blank_width))
             Line.set_color(0, 0, 0)
             self.Lines.append(Line)
 
         self.Walls = []  # 设置墙
 
-        for i in self.wall_states:
+        for i in self.states:
             v = [(-grid_height/2, -grid_width/2), (-grid_height/2,  grid_width/2),
                  ( grid_height/2,  grid_width/2), ( grid_height/2, -grid_width/2)]
             wall = rendering.make_polygon(v)
             circletrans = rendering.Transform(translation=(self.x[i], self.y[i]))
             wall.add_attr(circletrans)
-            wall.set_color(0, 0, 0)
+
+            if i in self.wall_states:
+                wall.set_color(0, 0, 0)
+            else:
+                wall.set_color(0.5, 0.5, 0.5)
+
             self.Walls.append(wall)
 
         self.Doors = []  # 设置出口
@@ -108,8 +129,22 @@ class GridMaze(gym.Env):
             door = rendering.make_circle(grid_width/2)
             circletrans = rendering.Transform(translation=(self.x[i], self.y[i]))
             door.add_attr(circletrans)
-            door.set_color(1, 0.9, 0)
+            door.set_color(1, 0.5, 0.5)
             self.Doors.append(door)
+
+    def update_Q_value(self, state=0, value=0):
+        self.q_value[state] = value
+        if value > 0:
+            r = value / 0.1
+            r = min(r, 1)
+            g = 0
+        else:
+            g = -value / 0.1
+            g = min(g, 1)
+            r = 0
+
+        self.Walls[state].set_color(r, g, 0)
+
 
     def getTerminal(self):
         return self.terminate_states
@@ -149,7 +184,7 @@ class GridMaze(gym.Env):
             is_terminal = True
 
         if next_state not in self.rewards:
-            r = 0.0
+            r = -0.01
         else:
             r = self.rewards[next_state]
 
@@ -181,7 +216,7 @@ class GridMaze(gym.Env):
             self.viewer = rendering.Viewer(screen_width, screen_height)
             # 创建网格世界
             # 创建机器人
-            robot = rendering.make_circle(30)
+            robot = rendering.make_circle(self.grid_width/2)
             self.robotrans = rendering.Transform()
             robot.add_attr(self.robotrans)
             robot.set_color(0.8, 0.6, 0.4)
