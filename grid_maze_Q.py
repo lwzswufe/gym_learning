@@ -9,6 +9,7 @@ INITIAL_EPSILON = 0.5  # starting value of epsilon
 FINAL_EPSILON = 0.01  # final value of epsilon
 REPLAY_SIZE = 10000  # experience replay buffer size
 TRAIN_TIMES = 10000
+ALPHA = 1  # 学习速率 若ALPHA<1 则为增量式学习方法 否则为时间差分方法
 
 env = gym.make('GridMaze-v0')
 state_num = env.env.grid_num
@@ -31,11 +32,13 @@ for i in range(TRAIN_TIMES):
 
     if is_terminal:
         Q[state, action_id] = r
+        env.env.update_Q_value(state, r)
         time.sleep(0.1)
         env.reset()
         print("times: {} state:{} return:{}".format(i, next_state, r))
     else:
-        Q[state, action_id] = r + GAMMA * np.max(Q[next_state, :])
+        Q[state, action_id] -= ALPHA * Q[state, action_id]
+        Q[state, action_id] += ALPHA * (r + GAMMA * np.max(Q[next_state, :]))
         env.env.update_Q_value(state, np.max(Q[state, :]))
         print("times: {} state:{}".format(i, next_state))
 

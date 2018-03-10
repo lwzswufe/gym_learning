@@ -135,15 +135,17 @@ class GridMaze(gym.Env):
     def update_Q_value(self, state=0, value=0):
         self.q_value[state] = value
         if value > 0:
-            r = value / 0.1
-            r = min(r, 1)
-            g = 0
+            value = min(value, 1)
+            r = 1
+            g = 1 - value
+            b = 0
         else:
-            g = -value / 0.1
-            g = min(g, 1)
-            r = 0
+            value = max(-1, value)
+            g = 1
+            r = 1 + value
+            b = 0
 
-        self.Walls[state].set_color(r, g, 0)
+        self.Walls[state].set_color(r, g, b)
 
 
     def getTerminal(self):
@@ -184,7 +186,7 @@ class GridMaze(gym.Env):
             is_terminal = True
 
         if next_state not in self.rewards:
-            r = -0.01
+            r = -0.10
         else:
             r = self.rewards[next_state]
 
@@ -236,8 +238,7 @@ class GridMaze(gym.Env):
             return None
 
         # 更新机器人坐标
-        if not isinstance(self.state, int):
-            print('err')
+
         self.robotrans.set_translation(self.x[self.state], self.y[self.state])
 
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
