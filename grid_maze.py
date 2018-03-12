@@ -17,6 +17,8 @@ class GridMaze(gym.Env):
     }
 
     def __init__(self, width=15, height=15):
+        self.width_cell = width
+        self.height_cell = height
         grid_num = width * height
         self.grid_num = grid_num
         self.q_value = numpy.zeros(grid_num)
@@ -40,12 +42,20 @@ class GridMaze(gym.Env):
             is_random = False
 
         terminate_states = []
+        self.maze = numpy.zeros(height * width)
+
         if is_random:
             self.wall_states = random.sample(range(grid_num), int(grid_num / 4))
             terminate_states.append(self.wall_states.pop(-1))
         else:
             self.wall_states = [3, 8, 10, 11, 22, 23, 24]
             terminate_states = [14]
+
+        for state in terminate_states:
+            self.maze[state] = 1
+
+        for state in self.wall_states:
+            self.maze[state] = -1
 
         self.terminate_states = dict()  # 终止状态为字典格式
         for key in terminate_states:

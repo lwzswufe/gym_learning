@@ -13,7 +13,8 @@ GAMMA = 0.9  # discount factor for target Q
 INITIAL_EPSILON = 0.5  # starting value of epsilon
 FINAL_EPSILON = 0.01  # final value of epsilon
 REPLAY_SIZE = 10000  # experience replay buffer size
-BATCH_SIZE = 32  # size of minibatch
+TRAIN_TIMES = 10000
+BATCH_SIZE = 256  # size of minibatch
 
 
 class DQN():
@@ -24,17 +25,17 @@ class DQN():
         # init some parameters
         self.time_step = 0
         self.epsilon = INITIAL_EPSILON
-
-        self.state_dim = env.observation_space.shape[0]  # 状态数量
-        self.action_dim = env.action_space.n             # 行动数量
+        self.state_n = 10
+        self.state_dim = self.state_n                    # 状态数量
+        self.action_dim = len(env.env.actions)            # 行动数量
 
         self.conv_1 = conv_1
         self.conv_2 = conv_2
         self.pool_1 = pool_1
         self.pool_2 = pool_2
-        self.state_n = 10
-        self.width = 0
-        self.height = 0
+
+        self.width = env.env.width_cell
+        self.height = env.env.height_cell
         self.node_num_2 = (self.width / pool_1[1] / pool_2[1]) * \
                          (self.height / pool_1[0] / pool_2[0])
 
@@ -46,10 +47,10 @@ class DQN():
         self.session.run(tf.initialize_all_variables())
 
     def create_Q_network(self):
-        tf_x = tf.placeholder(tf.float32, [None, self.height * self.width])
-        image = tf.reshape(tf_x, [-1, self.height, self.width, 1])  # (batch, height, width, channel)
+        self.state_input = tf.placeholder(tf.float32, [None, self.height * self.width])
+        image = tf.reshape(self.state_input, [-1, self.height, self.width, 1])  # (batch, height, width, channel)
         #  -1 can also be used to infer推断 the shape
-        tf_y = tf.placeholder(tf.int32, [None, self.state_n])  # input y
+
         # tf.nn.conv2d，一般在下载预训练好的模型时使用。
 
         conv1 = tf.layers.conv2d(inputs=image, filters=self.conv_1[0], kernel_size=self.conv_1[1],
@@ -133,6 +134,7 @@ class DQN():
         # Step 2: calculate y
         y_batch = []   # q-learning的Q值
         Q_value_batch = self.Q_value.eval(feed_dict={self.state_input: next_state_batch})
+
         for i in range(0, BATCH_SIZE):
             done = minibatch[i][4]
             if done:  # 终止状态
@@ -155,7 +157,7 @@ class DQN():
         else:                                # 贪婪策略
             return np.argmax(Q_value)
 
-        self.epsilon -= (INITIAL_EPSILON - FINAL_EPSILON)/10000
+        self.epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / TRAIN_TIMES
         # epsilon 递减
 
     def action(self, state):
@@ -183,6 +185,12 @@ STEP = 300  # Step limitation in an episode
 TEST = 10  # The number of experiment test every 100 episode
 
 
+def get_maze(env, state):
+    maze = env.env.maze
+    maze[state] = 0.1
+    return maze
+
+
 def main():
     # initialize OpenAI Gym env and dqn agent
     env = gym.make(ENV_NAME)
@@ -196,16 +204,21 @@ def main():
             action = agent.egreedy_action(state)
             # e-greedy action for train
             next_state, reward, done, _ = env.step(action)
+            maze_now = get_maze(env, state)
+            maze_next = get_maze(env, next_state)
             # Define reward for agent
             if done:  # 终止状态
-                reward = -1
+                reward = 1
             else:
-                reward = 0.1
+                reward = -0.05
 
-            agent.perceive(state, action, reward, next_state, done)
+            agent.perceive(maze_now, action, reward, maze_next, done)
+            # 存储经验--训练
             state = next_state
+
             if done:
                 break
+
         # Test every 100 episodes
         if episode % 100 == 0:
             total_reward = 0
