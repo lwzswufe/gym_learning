@@ -19,7 +19,7 @@ BATCH_SIZE = 256  # size of minibatch
 
 class DQN():
     # DQN Agent
-    def __init__(self, env, conv_1=[16, 5, 1], conv_2=[32, 5, 1], pool_1=[2, 2], pool_2=[3, 3]):
+    def __init__(self, env, conv_1=[16, 5, 1], conv_2=[32, 5, 1], pool_1=[2, 2], pool_2=[2, 2]):
         # init experience replay
         self.replay_buffer = deque()                     # 缓存经验
         # init some parameters
@@ -36,8 +36,8 @@ class DQN():
 
         self.width = env.env.width_cell
         self.height = env.env.height_cell
-        self.node_num_2 = (self.width / pool_1[1] / pool_2[1]) * \
-                         (self.height / pool_1[0] / pool_2[0])
+        self.node_num_2 = int(self.width / pool_1[1] / pool_2[1]) * \
+                         int(self.height / pool_1[0] / pool_2[0])
 
         self.create_Q_network()
         self.create_training_method()
@@ -180,9 +180,9 @@ class DQN():
 # Hyper Parameters
 
 ENV_NAME = 'GridMaze-v0'
-EPISODE = 10000  # Episode limitation
-STEP = 300  # Step limitation in an episode
-TEST = 10  # The number of experiment test every 100 episode
+EPISODE = 10000  # Episode limitation  总训练次数
+STEP = 30  # Step limitation in an episode 最大步长
+TEST = 20  # The number of experiment test every 100 episode 测试次数
 
 
 def get_maze(env, state):
@@ -201,16 +201,16 @@ def main():
         state = env.reset()
         # Train
         for step in range(STEP):
-            action = agent.egreedy_action(state)
+            maze_now = get_maze(env, state)
+            action = agent.egreedy_action(maze_now)
             # e-greedy action for train
             next_state, reward, done, _ = env.step(action)
-            maze_now = get_maze(env, state)
             maze_next = get_maze(env, next_state)
             # Define reward for agent
             if done:  # 终止状态
                 reward = 1
             else:
-                reward = -0.05
+                reward = -0.03
 
             agent.perceive(maze_now, action, reward, maze_next, done)
             # 存储经验--训练
@@ -225,8 +225,9 @@ def main():
             for i in range(TEST):
                 state = env.reset()
                 for j in range(STEP):
-                    env.render()
-                    action = agent.action(state)  # direct action for test
+                    # env.render()
+                    maze_now = get_maze(env, state)
+                    action = agent.action(maze_now)  # direct action for test
                     state, reward, done, _ = env.step(action)
                     total_reward += reward
                     if done:

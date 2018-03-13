@@ -16,7 +16,7 @@ class GridMaze(gym.Env):
         'video.frames_per_second': 2
     }
 
-    def __init__(self, width=15, height=15):
+    def __init__(self, width=12, height=12):
         self.width_cell = width
         self.height_cell = height
         grid_num = width * height
@@ -61,7 +61,7 @@ class GridMaze(gym.Env):
         for key in terminate_states:
             self.terminate_states[key] = 1
 
-        self.actions = ['n', 'e', 's', 'w']
+        self.actions = [0, 1, 2, 3]
         # n上0  e右1  s下2  w左3
 
         self.rewards = dict()         # 回报的数据结构为字典
