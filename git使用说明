@@ -4,3 +4,4 @@ git commit -m "message"
 git push https://github.com/lwzswufe/gym_learning.git
 git rm --cached xx.py 远程删除文件
 git rm -r venv  远程删除文件夹
+git checkout -- file  删除本地未提交的修改
