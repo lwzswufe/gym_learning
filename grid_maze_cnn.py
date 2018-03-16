@@ -44,7 +44,7 @@ class DQN():
 
         # Init session
         self.session = tf.InteractiveSession()
-        self.session.run(tf.initialize_all_variables())
+        self.session.run(tf.global_variables_initializer())
 
     def create_Q_network(self):
         self.state_input = tf.placeholder(tf.float32, [None, self.height * self.width])
@@ -54,7 +54,7 @@ class DQN():
         # tf.nn.conv2d，一般在下载预训练好的模型时使用。
 
         conv1 = tf.layers.conv2d(inputs=image, filters=self.conv_1[0], kernel_size=self.conv_1[1],
-                                 strides=self.conv_1[2], padding='same', activation=tf.nn.softmax)
+                                 strides=self.conv_1[2], padding='same', activation=tf.nn.sigmoid)
         # shape (28, 28, 1)  第一组卷积层
         # inputs指需要做卷积的输入图像，它要求是一个Tensor
         # filters卷积核的数量
@@ -65,19 +65,23 @@ class DQN():
         # -> (28, 28, 16)
         # activation 正则化项
 
-        pool1 = tf.layers.max_pooling2d(conv1, pool_size=self.pool_1[0], strides=self.pool_1[1])
+        pool1 = tf.layers.average_pooling2d(conv1, pool_size=self.pool_1[0], strides=self.pool_1[1])
         # 第一组池化层
         # the size of the pooling window 池化层大小2*2
         # 卷积时在图像每一维的步长，这是一个一维的向量，长度2
         # -> (14, 14, 16)
 
         conv2 = tf.layers.conv2d(pool1, self.conv_2[0], self.conv_2[1], self.conv_2[2]
-                                 , 'same', activation=tf.nn.relu)
+                                 , 'same', activation=tf.nn.sigmoid)
         # -> (14, 14, 32)
         pool2 = tf.layers.max_pooling2d(conv2, self.pool_2[0], self.pool_2[1])
         # -> (7, 7, 32)
+        # avgpool, maxpool
+
         flat = tf.reshape(pool2, [-1, self.node_num_2 * self.conv_2[0]])  # -> (7*7*32, )
-        cnn_output = tf.layers.dense(flat, self.state_n)  # output layer
+        W0 = self.weight_variable([self.node_num_2 * self.conv_2[0], self.state_n])
+        b0 = self.bias_variable([self.state_n])
+        self.cnn_output = tf.nn.softmax(tf.matmul(flat, W0) + b0)
 
         # tf.metrics.accuracy计算精度,返回accuracy和update_operation
 
@@ -89,7 +93,7 @@ class DQN():
         # input layer
         # self.state_input = tf.placeholder("float", [None, self.state_dim])
         # hidden layers
-        h_layer = tf.nn.relu(tf.matmul(cnn_output, W1) + b1)
+        h_layer = tf.nn.relu(tf.matmul(self.cnn_output, W1) + b1)
         # h = relu(W1 * state + b1)
         # Q Value layer
         self.Q_value = tf.matmul(h_layer, W2) + b2
@@ -149,13 +153,14 @@ class DQN():
             })
 
     def egreedy_action(self, state):  # e 贪婪策略
-        Q_value = self.Q_value.eval(feed_dict={
-            self.state_input: [state]
-            })[0]
+        # cnn_class = self.cnn_output.eval(feed_dict={self.state_input:[state]})
+        Q_value, cnn_class = self.session.run([self.Q_value, self.cnn_output], feed_dict={
+            self.state_input: [state]})
+
         if random.random() <= self.epsilon:  # 随机选择
-            return random.randint(0, self.action_dim - 1)
+            return random.randint(0, self.action_dim - 1), cnn_class
         else:                                # 贪婪策略
-            return np.argmax(Q_value)
+            return np.argmax(Q_value), cnn_class
 
         self.epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / TRAIN_TIMES
         # epsilon 递减
@@ -181,14 +186,22 @@ class DQN():
 
 ENV_NAME = 'GridMaze-v0'
 EPISODE = 10000  # Episode limitation  总训练次数
-STEP = 30  # Step limitation in an episode 最大步长
+STEP = 40  # Step limitation in an episode 最大步长
 TEST = 20  # The number of experiment test every 100 episode 测试次数
+state_mat = np.zeros([100, 10])
 
 
 def get_maze(env, state):
     maze = env.env.maze
     maze[state] = 0.1
     return maze
+
+
+def print_array(array, precision=4):
+    context = ''
+    for a in array:
+        context += '|{:.4f} '.format(a)
+    print(context)
 
 
 def main():
@@ -199,16 +212,20 @@ def main():
     for episode in range(EPISODE):
         # initialize task
         state = env.reset()
+
         # Train
         for step in range(STEP):
             maze_now = get_maze(env, state)
-            action = agent.egreedy_action(maze_now)
+            action, cnn_class = agent.egreedy_action(maze_now)
+            state_mat[episode % 100, :] = cnn_class
             # e-greedy action for train
             next_state, reward, done, _ = env.step(action)
             maze_next = get_maze(env, next_state)
             # Define reward for agent
             if done:  # 终止状态
                 reward = 1
+            elif step == STEP - 1:
+                reward = 0.08 - env.env.distance() / 100
             else:
                 reward = -0.03
 
@@ -220,7 +237,9 @@ def main():
                 break
 
         # Test every 100 episodes
-        if episode % 100 == 0:
+        if (episode + 1) % 10 == 0:
+            print_array(np.mean(state_mat, axis=0))
+            print_array(np.std(state_mat, axis=0))
             total_reward = 0
             for i in range(TEST):
                 state = env.reset()
@@ -233,7 +252,7 @@ def main():
                     if done:
                         break
             ave_reward = total_reward/TEST
-            print('episode: ', episode, 'Evaluation Average Reward:', ave_reward)
+            print('episode: {} Reward: {:.4f}'.format(episode + 1, ave_reward))
             if ave_reward == 200:
                 break
 
