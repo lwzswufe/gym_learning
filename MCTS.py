@@ -156,9 +156,9 @@ class MCTS(object):
         returning +1 if the current player wins, -1 if the opponent wins,
         and 0 if it is a tie.
         """
-        player = state.get_current_player()
+        # player = state.get_current_player()
         for i in range(limit):
-            end, winner = state.game_end()
+            end, step_n = state.game_end()
             if end:
                 break
             action_probs = rollout_policy_fn(state)
@@ -167,23 +167,26 @@ class MCTS(object):
         else:
             # If no break from the loop, issue a warning.
             print("WARNING: rollout reached move limit")
-        if winner == -1:  # tie
-            return 0
+        if step_n < 0:  # tie
+            return step_n
         else:
-            return 1 if winner == player else -1
+            return step_n
 
     def get_move(self, state):
         """
         Runs all playouts sequentially and returns the most visited action.
         state: the current game state
 
-        Return: the selected action
+        Return: the selected action [move, TreeNode]
         """
         for n in range(self._n_playout):
             state_copy = copy.deepcopy(state)
             self._playout(state_copy)
-        return max(self._root._children.items(),
-                   key=lambda act_node: act_node[1]._n_visits)[0]
+
+        if len(state.availables) != len(self._root._children):
+            print('err')
+        action, Q_ = self.get_prob()
+        return action
 
     def update_with_move(self, last_move):
         """Step forward in the tree, keeping everything we already know
@@ -197,6 +200,14 @@ class MCTS(object):
 
     def __str__(self):
         return "MCTS"
+
+    def get_prob(self):
+        Q = dict()
+        for action in self._root._children.keys():
+            node = self._root._children[action]
+            Q[action] = node._Q
+        # print(Q)
+        return max(Q.items(), key=lambda x: x[1])
 
 
 class MCTSPlayer(object):
@@ -222,3 +233,5 @@ class MCTSPlayer(object):
 
     def __str__(self):
         return "MCTS {}".format(self.player)
+
+
