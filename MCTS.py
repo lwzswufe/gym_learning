@@ -81,7 +81,7 @@ class TreeNode(object):
         """
         # If it is not root, this node's parent should be updated first.
         if self._parent:
-            self._parent.update_recursive(-leaf_value)
+            self._parent.update_recursive(leaf_value)
         self.update(leaf_value)
 
     def get_value(self, c_puct):
@@ -143,10 +143,13 @@ class MCTS(object):
         end, winner = state.game_end()
         if not end:
             node.expand(action_probs)                 # 2拓展
+        else:
+            pass
+            # print('end')
         # Evaluate the leaf node by random rollout
         leaf_value = self._evaluate_rollout(state)    # 3模拟
         # Update value and visit count of nodes in this traversal.
-        node.update_recursive(-leaf_value)            # 4回溯
+        node.update_recursive(leaf_value)            # 4回溯
 
     def _evaluate_rollout(self, state, limit=1000):
         """
