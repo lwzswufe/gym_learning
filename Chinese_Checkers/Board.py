@@ -20,6 +20,7 @@ class Board(object):
         self.players_net = [[], []]
         self.players_pegs = []
         self.step_n = 0
+        self.step_max = self.board_size * self.pegs_num * 2
         self.availables = []
         self.point_num = size * size + 1
         self.state = np.zeros(self.point_num, dtype=np.int)
@@ -29,8 +30,24 @@ class Board(object):
         self.walk_mat_init()
         self.jump_mat_init()
         self.jump_extend_points = dict()
+        self.max_score = 0
+        self.get_max_score()
+
+    def get_max_score(self):
+        '''
+        获取最大得分
+        :return:
+        '''
+        score = 0
+        for i in range(self.pegs_size):
+            score += (2 * (self.board_size - 1) - i) * (i + 1)
+        self.max_score = score
                         
     def walk_mat_init(self):
+        '''
+        初始化单步移动状态转移矩阵
+        :return:
+        '''
         for x in range(self.board_size):
             for y in range(self.board_size):
                 flag = y * self.board_size + x
@@ -44,6 +61,10 @@ class Board(object):
         self.walk[-1, :] = -1
                         
     def jump_mat_init(self):
+        '''
+        初始化单步跳跃状态转移矩阵
+        :return:
+        '''
         for x in range(self.board_size):
             for y in range(self.board_size):
                 flag = y * self.board_size + x
@@ -58,7 +79,7 @@ class Board(object):
 
     def init_board(self):
         '''
-        board 初始化
+        board 初始化board
         :return:
         '''
         self.players_pegs = np.zeros([2, self.pegs_num], dtype=np.int)
@@ -80,16 +101,13 @@ class Board(object):
         # self.players_net[1] = list_to_net(self.players_pegs[1])
 
         # 可行策略初始化 策略树展开必备条件
-    @property
-    def pegs(self):
-        return self.players_pegs[0] + self.players_pegs[1]
-
-    @property
-    def net(self):
-        return list_to_net(self.board_size, self.pegs)
 
     def graphic(self):
-        size = 4
+        '''
+        绘图程序
+        :return:
+        '''
+        size = 6
         for y in range(self.board_size):
             print(' '.center(y * 2 + 1), end='')
             for x in range(self.board_size):
@@ -103,6 +121,11 @@ class Board(object):
             print('\r\n')
 
     def get_availables(self, player_id):
+        '''
+        获取玩家的所有可行动作
+        :param player_id:
+        :return:
+        '''
         actions = []
         self.get_continuously_jump()
         for i in range(self.pegs_num):
@@ -112,7 +135,7 @@ class Board(object):
 
     def get_available(self, player_id, pegs_id):
         '''
-        获取可行状态
+        获取单一棋子的所有可行动作
         :return:
         '''
         loc = self.players_pegs[player_id][pegs_id]
@@ -130,6 +153,10 @@ class Board(object):
         return list(walk) + list(jump)      # 跳跃点 移动点不会重合
 
     def get_continuously_jump(self):
+        '''
+        获取可连续跳跃的空白点
+        :return:
+        '''
         points = np.array(range(self.point_num), dtype=np.int)
         st_point = []
         ed_point = []
@@ -142,6 +169,10 @@ class Board(object):
         self.jump_extend(st_point, ed_point)
 
     def jump_extend(self, st_point, ed_point):
+        '''
+        获取可连续跳跃的等价空白点
+        :return:
+        '''
         key = set(st_point + ed_point)
         if len(key) == len(st_point) + len(ed_point):
             jumps = dict()
@@ -179,15 +210,44 @@ class Board(object):
 
         self.jump_extend_points = jumps
 
+    def get_score(self):
+        '''
+        获取当前玩家评分
+        :return:
+        '''
+        score = [0, 0]
+        for loc in self.players_pegs[0, :]:
+            (x, y) = self.get_location(loc)
+            score[0] += x + y
+
+        for loc in self.players_pegs[1, :]:
+            (x, y) = self.get_location(loc)
+            score[1] += (self.board_size - 1) * 2 - x - y
+        return score
+
     def game_end(self):
-        if self.state in self.terminate_states:
-            return True, 10.0 / (self.step_n + 1)
+        '''
+        判断游戏是否结束
+        :return: 游戏结束 胜利者
+        '''
+        score = self.get_score()
+        print(score)
+        if max(score) >= self.max_score:
+            winner = np.argmax(score)
+            return True, winner
         elif self.step_n > self.step_max:
             return True, -1
         else:
-            return False, 10.0 / (self.step_n + 1)
+            return False, -1
 
     def do_move(self, player_id, pegs_id, target_loc):
+        '''
+        移动棋子
+        :param player_id:
+        :param pegs_id:
+        :param target_loc:
+        :return:
+        '''
         loc_old = self.players_pegs[player_id, pegs_id]
         self.players_pegs[player_id, pegs_id] = target_loc
         self.state[loc_old] = -1
@@ -196,11 +256,21 @@ class Board(object):
         self.step_n += 1
 
     def get_location(self, loc_id=7):
+        '''
+        位置标号转化为位置坐标(x, y)
+        :param loc_id:
+        :return:
+        '''
         x = int(loc_id % self.board_size)
         y = int(loc_id // self.board_size)
         return (x, y)
 
     def get_location_id(self, loc=(0, 2)):
+        '''
+        位置坐标(x, y)转化为位置编号
+        :param loc:
+        :return:
+        '''
         return int(loc[0] + loc[1] * self.board_size)
 
 
@@ -212,19 +282,46 @@ def list_to_net(size, pegs_list):
 
 
 class Board_new(Board):
-    def random_move(self, player_id=0):
-        actions = self.get_availables(player_id)
+    def random_strategy(self, player_id=0, actions=[]):
         (peg_id, target_loc) = random.sample(actions, 1)[0]
+        return peg_id, target_loc
+
+    def step(self, player_id=0):
+        actions = self.get_availables(player_id)
+        peg_id, target_loc = self.greed_strategy(player_id, actions)
         self.do_move(player_id, peg_id, target_loc)
         self.graphic()
         time.sleep(0.5)
 
     def self_play(self):
         flag = 0
-        while flag < 30:
-            self.random_move(0)
-            self.random_move(1)
+        while True:
+            self.step(flag % 2)
+            end, winner = self.game_end()
+            if end:
+                print('game end the winner is: {}'.format(winner))
+                break
             flag += 1
+
+    def action_evaluate(self, player_id, peg_id, target_loc):
+        peg_loc = self.players_pegs[player_id, peg_id]
+        (x, y) = self.get_location(peg_loc)
+        (x_, y_) = self.get_location(target_loc)
+        if player_id == 0:
+            return (x_ + y_) - (x + y)
+        else:
+            return (x + y) - (x_ + y_)
+
+    def greed_strategy(self, player_id, actions):
+        scores = list()
+        for (peg_id, target_loc) in actions:
+            score = self.action_evaluate(player_id, peg_id, target_loc)
+            scores.append(score)
+
+        max_score = max(scores)
+        actions_best = [actions[i] for i in range(len(scores)) if scores[i] >= max_score]
+        (peg_id, target_loc) = random.sample(actions_best, 1)[0]
+        return peg_id, target_loc
 
     def play_with_computer(self):
         pass
