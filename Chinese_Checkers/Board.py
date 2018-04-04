@@ -21,12 +21,14 @@ class Board(object):
         self.players_pegs = []
         self.step_n = 0
         self.availables = []
-        self.state = np.zeros(size * size + 1, dtype=np.int)
+        self.point_num = size * size + 1
+        self.state = np.zeros(self.point_num, dtype=np.int)
 
-        self.walk = np.zeros([size * size, len(self.basic_actions)], dtype=np.int)  # 坐标转移矩阵 走
-        self.jump = np.zeros([size * size, len(self.basic_actions)], dtype=np.int)  # 坐标转移矩阵 跳
+        self.walk = np.zeros([self.point_num, len(self.basic_actions)], dtype=np.int)  # 坐标转移矩阵 走
+        self.jump = np.zeros([self.point_num, len(self.basic_actions)], dtype=np.int)  # 坐标转移矩阵 跳
         self.walk_mat_init()
         self.jump_mat_init()
+        self.jump_extend_points = dict()
                         
     def walk_mat_init(self):
         for x in range(self.board_size):
@@ -39,6 +41,7 @@ class Board(object):
                         self.walk[flag, i] = y_ * self.board_size + x_
                     else:
                         self.walk[flag, i] = -1
+        self.walk[-1, :] = -1
                         
     def jump_mat_init(self):
         for x in range(self.board_size):
@@ -51,6 +54,7 @@ class Board(object):
                         self.jump[flag, i] = y_ * self.board_size + x_
                     else:
                         self.jump[flag, i] = -1
+        self.jump[-1, :] = -1
 
     def init_board(self):
         '''
@@ -100,6 +104,7 @@ class Board(object):
 
     def get_availables(self, player_id):
         actions = []
+        self.get_continuously_jump()
         for i in range(self.pegs_num):
             next_locs = self.get_available(player_id=player_id, pegs_id=i)
             actions += list(zip([i] * len(next_locs), next_locs))
@@ -114,7 +119,65 @@ class Board(object):
 
         walk = self.walk[loc, :][self.state[self.walk[loc]] == -1]
         jump = self.jump[loc, :][(self.state[self.jump[loc]] == -1) & (self.state[self.walk[loc, :]] > -1)]
-        return list(walk) + list(jump)
+
+        if len(self.jump_extend_points) > 0 and len(jump) > 0:
+            jumps = list()
+            for point in jump:
+                if point in self.jump_extend_points.keys():
+                    jumps += self.jump_extend_points[point]
+            jump = list(set(jumps + list(jump)))
+
+        return list(walk) + list(jump)      # 跳跃点 移动点不会重合
+
+    def get_continuously_jump(self):
+        points = np.array(range(self.point_num), dtype=np.int)
+        st_point = []
+        ed_point = []
+        for action in [0, 2, 4]:
+            j = points[(self.state == -1) & (self.state[self.walk[:, action]] > -1)
+                       & (self.state[self.jump[:, action]] == -1)]
+            st_point += list(j)
+            ed_point += list(self.jump[j, action])
+
+        self.jump_extend(st_point, ed_point)
+
+    def jump_extend(self, st_point, ed_point):
+        key = set(st_point + ed_point)
+        if len(key) == len(st_point) + len(ed_point):
+            jumps = dict()
+            for (st, ed) in zip(st_point, ed_point):
+                jumps[st] = [ed]
+                jumps[ed] = [st]
+            self.jump_extend_points = jumps
+            return
+
+        value = [-1] * len(key)
+        set_links = dict(zip(key, value))
+        point_set = list()
+        for (st, ed) in zip(st_point, ed_point):
+            link_st = set_links[st]
+            link_ed = set_links[ed]
+            if max(link_st, link_ed) < 0:      # 均未写入
+                point_set.append([st, ed])
+                set_links[st] = len(point_set) - 1
+                set_links[ed] = len(point_set) - 1
+            elif min(link_st, link_ed) >= 0:   # 均写入
+                if link_st != link_ed:         # 合并集合
+                    point_set[link_st] += point_set[link_ed]
+                    for point in point_set[link_ed]:
+                        set_links[point] = link_st
+            elif link_ed >= 0:
+                set_links[st] = link_ed
+                point_set[link_ed].append(st)
+            else:
+                set_links[ed] = link_st
+                point_set[link_st].append(ed)
+
+        jumps = dict()
+        for point in key:
+            jumps[point] = point_set[set_links[point]]
+
+        self.jump_extend_points = jumps
 
     def game_end(self):
         if self.state in self.terminate_states:
@@ -148,7 +211,7 @@ def list_to_net(size, pegs_list):
     return net
 
 
-class Board_test(Board):
+class Board_new(Board):
     def random_move(self, player_id=0):
         actions = self.get_availables(player_id)
         (peg_id, target_loc) = random.sample(actions, 1)[0]
@@ -163,9 +226,12 @@ class Board_test(Board):
             self.random_move(1)
             flag += 1
 
+    def play_with_computer(self):
+        pass
+
 
 if __name__ == "__main__":
-    b = Board_test()
+    b = Board_new()
     b.init_board()
     b.self_play()
 
