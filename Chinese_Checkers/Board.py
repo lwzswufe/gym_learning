@@ -17,10 +17,11 @@ class Board(object):
         self.basic_actions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]]
         #          #     右      左        下        上      右上     左下
         # self.net = np.zeros([self.board_size, self.board_size])
+        self.player_num = 2
         self.players_net = [[], []]
         self.players_pegs = []
         self.step_n = 0
-        self.step_max = self.board_size * self.pegs_num * 2
+        self.step_max = self.board_size * self.pegs_num * 4
         self.availables = []
         self.point_num = size * size + 1
         self.state = np.zeros(self.point_num, dtype=np.int)
@@ -32,6 +33,7 @@ class Board(object):
         self.jump_extend_points = dict()
         self.max_score = 0
         self.get_max_score()
+        self.current_player_id = 0
 
     def get_max_score(self):
         '''
@@ -120,7 +122,7 @@ class Board(object):
                     print('.'.center(size), end='')
             print('\r\n')
 
-    def get_availables(self, player_id):
+    def get_availables(self):
         '''
         获取玩家的所有可行动作
         :param player_id:
@@ -129,15 +131,16 @@ class Board(object):
         actions = []
         self.get_continuously_jump()
         for i in range(self.pegs_num):
-            next_locs = self.get_available(player_id=player_id, pegs_id=i)
+            next_locs = self.get_available(pegs_id=i)
             actions += list(zip([i] * len(next_locs), next_locs))
         return actions
 
-    def get_available(self, player_id, pegs_id):
+    def get_available(self, pegs_id):
         '''
         获取单一棋子的所有可行动作
         :return:
         '''
+        player_id = self.current_player_id
         loc = self.players_pegs[player_id][pegs_id]
 
         walk = self.walk[loc, :][self.state[self.walk[loc]] == -1]
@@ -231,7 +234,7 @@ class Board(object):
         :return: 游戏结束 胜利者
         '''
         score = self.get_score()
-        print(score)
+        # print(score)
         if max(score) >= self.max_score:
             winner = np.argmax(score)
             return True, winner
@@ -240,7 +243,7 @@ class Board(object):
         else:
             return False, -1
 
-    def do_move(self, player_id, pegs_id, target_loc):
+    def do_move(self, action):
         '''
         移动棋子
         :param player_id:
@@ -248,12 +251,15 @@ class Board(object):
         :param target_loc:
         :return:
         '''
+        (pegs_id, target_loc) = action
+        player_id = self.current_player_id
         loc_old = self.players_pegs[player_id, pegs_id]
         self.players_pegs[player_id, pegs_id] = target_loc
         self.state[loc_old] = -1
         self.state[target_loc] = player_id
 
         self.step_n += 1
+        self.current_player_id = self.step_n % self.player_num
 
     def get_location(self, loc_id=7):
         '''
