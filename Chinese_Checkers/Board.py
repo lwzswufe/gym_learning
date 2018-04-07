@@ -261,6 +261,15 @@ class Board(object):
         self.step_n += 1
         self.current_player_id = self.step_n % self.player_num
 
+    def update_state(self):
+        state = - np.ones(self.point_num, dtype=np.int)
+        for player_id in range(self.player_num):
+            for peg_id in range(self.pegs_num):
+                loc = self.players_pegs[player_id, peg_id]
+                state[loc] = player_id
+        state[-1] = -2
+        self.state = state
+
     def get_location(self, loc_id=7):
         '''
         位置标号转化为位置坐标(x, y)
