@@ -62,7 +62,7 @@ class TreeNode(object):
 
         if parent is not None:
             self._player_id = parent._player_id
-            self.threshold = parent.threshold
+            self.explore_num = parent.explore_num
             self.policy_value_fn = parent.policy_value_fn
         elif policy_value_fn is None:
             print('err')
@@ -99,8 +99,9 @@ class TreeNode(object):
         actions = board.get_availables()
         scores = np.zeros(len(actions))
         probs = self.policy_value_fn(board, actions)
-        if sum(probs) > 0 and len(actions) > 5:
-            action_ids = np.random.choice(range(len(actions)), size=5, p=probs, replace=False)
+
+        if self.explore_num > 0 and len(actions) > self.explore_num:
+            action_ids = np.random.choice(range(len(actions)), size=self.explore_num, p=probs, replace=False)
             scores = np.zeros(len(action_ids))
             actions_ = []
             for action_id in action_ids:
@@ -126,23 +127,31 @@ class TreeNode(object):
 
 
 class MiniMaxTree(object):
-    def __init__(self, height=2, policy_fun=policy_value_fn_0, threshold=0.33):
+    def __init__(self, height=2, policy_fun=policy_value_fn_0, explore_num=5):
         self.height = height
         self.policy_fun = policy_fun
-        self.threshold = threshold
+        self.explore_num = explore_num
         self.root = TreeNode(None, height, policy_fun)
-        self.root.threshold = threshold
+        self.root.explore_num = explore_num
 
     def get_action(self, board):
         self.root.expand(board, None)
         actions = []
+        scores = []
         for child in self.root._children:
             if child is None:
                 pass
-            elif child._Q == self.root._Q:
+            elif True:
+                scores.append(child._Q)
                 actions.append(child._action)
 
-        action = random.sample(actions, 1)[0]
+        scores = np.array(scores, dtype=np.float)
+        scores -= min(scores)
+        scores += 0.01
+        p = np.power(np.array(scores), 5)
+        p = p / sum(p)
+        action_id = np.random.choice(range(len(actions)), 1, p=p)
+        action = actions[action_id]
         # board.graphic()
         # self.show_all_choose()
         self.reset()
@@ -154,4 +163,4 @@ class MiniMaxTree(object):
 
     def reset(self):
         self.root = TreeNode(None, self.height, self.policy_fun)
-        self.root.threshold = self.threshold
+        self.root.explore_num = self.explore_num

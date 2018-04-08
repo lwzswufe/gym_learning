@@ -239,7 +239,8 @@ class Board(object):
             winner = np.argmax(score)
             return True, winner
         elif self.step_n > self.step_max:
-            return True, -1
+            winner = np.argmax(score)
+            return True, winner
         else:
             return False, -1
 
