@@ -4,30 +4,24 @@ import random
 
 
 class AI_Player(object):
-    """AI player based on MCTS"""
-    def __init__(self, strategy):
-        self.strategy = strategy
-
-    def set_player_ind(self, player_id):
-        # 设置玩家ID
-        self.player = player_id
-
-    def reset_player(self):
-        self.strategy.reset()
-
-    def get_action(self, board):
-        return self.strategy.get_action(board)
+    name = 'default'
+    player_id = None
 
 
-class Random_Strategy(object):
+class Random_Strategy(AI_Player):
+    name = 'random'
+
     def get_action(self, board):
         actions = board.get_availables()
         action = random.sample(actions, 1)[0]
         return action
 
 
-class Greedy_Strategy(object):
-    def action_evaluate(self, board, action):
+class Greedy_Strategy(AI_Player):
+    name = 'greed'
+
+    @staticmethod
+    def action_evaluate(board, action):
         player_id = board.current_player_id
         (peg_id, target_loc) = action
         peg_loc = board.players_pegs[player_id, peg_id]

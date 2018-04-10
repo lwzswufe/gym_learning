@@ -34,6 +34,7 @@ class Board(object):
         self.max_score = 0
         self.get_max_score()
         self.current_player_id = 0
+        self.last_move = None
 
     def get_max_score(self):
         '''
@@ -261,6 +262,7 @@ class Board(object):
 
         self.step_n += 1
         self.current_player_id = self.step_n % self.player_num
+        self.last_move = action
 
     def update_state(self):
         state = - np.ones(self.point_num, dtype=np.int)

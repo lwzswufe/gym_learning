@@ -30,7 +30,9 @@ def rollout_policy_fn(board):
     for i, action in enumerate(actions):
         scores[i] = action_evaluate(board, action)
 
-    scores[scores <= 0] = 0.01
+    scores -= np.min(scores)
+    scores += 0.01
+    scores = np.power(scores, 2)
     if np.sum(scores) == 0:
         print('err')
 
@@ -118,7 +120,7 @@ class TreeNode(object):
         """
         # If it is not root, this node's parent should be updated first.
         if self._parent:
-            self._parent.update_recursive(leaf_value)
+            self._parent.update_recursive(-leaf_value)
         self.update(leaf_value)
 
     def get_value(self, c_puct):
@@ -161,6 +163,7 @@ class MCTS(object):
         self._policy = rollout_policy_fn
         self._c_puct = c_puct
         self._n_playout = n_playout
+        self.limit = 40
 
     def _playout(self, board):
         """Run a single playout from the root to the leaf, getting a value at
@@ -168,7 +171,7 @@ class MCTS(object):
         State is modified in-place, so a copy must be provided.
         """
         node = self._root
-        while(1):
+        while True:
             if node.is_leaf():
 
                 break
@@ -189,9 +192,9 @@ class MCTS(object):
         # Evaluate the leaf node by random rollout
         leaf_value = self._evaluate_rollout(board)    # 3模拟
         # Update value and visit count of nodes in this traversal.
-        node.update_recursive(leaf_value)            # 4回溯
+        node.update_recursive(-leaf_value)            # 4回溯
 
-    def _evaluate_rollout(self, board, limit=1000):
+    def _evaluate_rollout(self, board):
         """
         # 模拟我们从Nn开始，让游戏随机进行，直到得到一个游戏结局，
         这个结局将作为Nn的初始评分。一般使用胜利/失败来作为评分，只有1或者0。
@@ -201,7 +204,7 @@ class MCTS(object):
         """
         player = board.current_player_id
         winner = -1
-        for i in range(limit):
+        for i in range(self.limit):
             end, winner = board.game_end()
             if end:
                 break
@@ -212,8 +215,9 @@ class MCTS(object):
             board.do_move(max_action)
             # board.graphic()
         else:
+            pass
             # If no break from the loop, issue a warning.
-            print("WARNING: rollout reached move limit")
+            # print("WARNING: rollout reached move limit")
 
         if winner < 0:  # tie 平局
             score = np.array(board.get_score())
@@ -236,6 +240,7 @@ class MCTS(object):
 
         if len(board.get_availables()) != len(self._root._children):
             print('err')
+
         action, Q_ = self.get_prob()
         return action
 
@@ -243,9 +248,13 @@ class MCTS(object):
         """Step forward in the tree, keeping everything we already know
         about the subtree.
         """
-        if last_move in self._root._children:
+        if last_move in self._root._children.keys():
             self._root = self._root._children[last_move]
             self._root._parent = None
+            actions = self._root._children.keys()
+            if len(actions) < 0:
+                print(self._root._children.keys())
+            pass
         else:
             self._root = TreeNode(None, 1.0)
 
@@ -253,17 +262,31 @@ class MCTS(object):
         return "MCTS"
 
     def get_prob(self):
-        Q = dict()
+        scores = []
+        actions = []
+        score_max = -np.inf
         for action in self._root._children.keys():
             node = self._root._children[action]
-            Q[action] = node._Q
+            Q = node._Q
+            if node._n_visits == 0:
+                continue
+            if Q > score_max:
+                scores = [Q]
+                actions = [action]
+            elif Q == score_max:
+                scores.append(Q)
+                actions.append(action)
+
         # print(Q)
-        action, Q_ = max(Q.items(), key=lambda x: x[1])
+        action_id = random.randint(0, len(scores) - 1)
+        action, Q_ = actions[action_id], scores[action_id]
         return action, Q_
 
 
 class MCTSPlayer(object):
     """AI player based on MCTS"""
+    name = 'MCTS'
+
     def __init__(self, c_puct=5, n_playout=1000):
         self.mcts = MCTS(policy_value_fn, c_puct, n_playout)
 
@@ -275,8 +298,9 @@ class MCTSPlayer(object):
         self.mcts.update_with_move(-1)
 
     def get_action(self, board):
+        self.mcts.update_with_move(board.last_move)
         action = self.mcts.get_action(board)
-        self.mcts.update_with_move(-1)
+        self.mcts.update_with_move(action)
         return action
 
     def __str__(self):

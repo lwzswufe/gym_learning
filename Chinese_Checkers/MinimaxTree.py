@@ -127,6 +127,8 @@ class TreeNode(object):
 
 
 class MiniMaxTree(object):
+    name = 'minimaxTree'
+
     def __init__(self, height=2, policy_fun=policy_value_fn_0, explore_num=5):
         self.height = height
         self.policy_fun = policy_fun
