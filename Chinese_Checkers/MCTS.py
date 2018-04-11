@@ -32,7 +32,7 @@ def rollout_policy_fn(board):
 
     scores -= np.min(scores)
     scores += 0.01
-    scores = np.power(scores, 2)
+    scores = np.power(scores, 6)
     if np.sum(scores) == 0:
         print('err')
 
@@ -146,7 +146,7 @@ class TreeNode(object):
 class MCTS(object):
     """A simple implementation of Monte Carlo Tree Search."""
 
-    def __init__(self, policy_value_fn, c_puct=5, n_playout=10000):
+    def __init__(self, policy_value_fn, c_puct=5, n_playout=1000):
         """
         policy_value_fn: a function that takes in a board state and outputs
             a list of (action, probability) tuples and also a score in [-1, 1]
@@ -163,7 +163,7 @@ class MCTS(object):
         self._policy = rollout_policy_fn
         self._c_puct = c_puct
         self._n_playout = n_playout
-        self.limit = 40
+        self.limit = 20
 
     def _playout(self, board):
         """Run a single playout from the root to the leaf, getting a value at
@@ -176,7 +176,8 @@ class MCTS(object):
 
                 break
             # Greedily select next move.
-            action, node = node.select(self._c_puct)  # 1选择
+            # action, new_node = node.select(self._c_puct)
+            action, node = node.select(self._c_puct)  # 1选择 探索子节点node替代旧node
             board.do_move(action)
             # board.graphic()
 
