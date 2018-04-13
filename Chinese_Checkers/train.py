@@ -18,7 +18,7 @@ from policy_value_net_tensorflow import PolicyValueNet # Tensorflow
 
 
 class Train():
-    def __init__(self, init_model=None, board):
+    def __init__(self, init_model, board, antagonist):
         # params of the board and the game
         self.board_width = 6
         self.board_height = 6
@@ -52,10 +52,7 @@ class Train():
             # start training from a new policy-value net
             self.policy_value_net = PolicyValueNet(self.board_width,
                                                    self.board_height)
-        self.mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn,
-                                      c_puct=self.c_puct,
-                                      n_playout=self.n_playout,
-                                      is_selfplay=1)
+        self.antagonist = antagonist
 
     def get_equi_data(self, play_data):
         """
@@ -89,7 +86,7 @@ class Train():
             play_data = list(play_data)[:]
             self.episode_len = len(play_data)
             # augment the data
-            play_data = self.get_equi_data(play_data)
+            # play_data = self.get_equi_data(play_data)
             self.data_buffer.extend(play_data)
 
     def policy_update(self):

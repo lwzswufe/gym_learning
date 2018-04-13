@@ -291,6 +291,32 @@ class Board(object):
         '''
         return int(loc[0] + loc[1] * self.board_size)
 
+    def get_current_state(self):
+        '''
+        返回四个矩阵
+        0： 当前player 棋子的位置
+        1： 对手player 棋子的位置
+        2： 对手最近一次落子的位置
+        3： 当前player是不是先手
+        :return:
+        '''
+        player_id = self.current_player_id
+        square_state = np.zeros((4, self.board_size, self.board_size))
+
+        square_state[0][self.players_pegs[player_id, :] // self.board_size,
+                        self.players_pegs[player_id, :] % self.board_size] = 1.0
+
+        square_state[1][self.players_pegs[1 - player_id, :] // self.board_size,
+                        self.players_pegs[1 - player_id, :] % self.board_size] = 1.0
+
+        # indicate the last move location
+        square_state[2][self.get_location(self.last_move[1])] = 1.0
+
+        if self.current_player_id == 0:
+            square_state[3][:, :] = 1.0  # 先手标记
+
+        return square_state
+
 
 def list_to_net(size, pegs_list):
     net = np.zeros(size, size)
@@ -305,10 +331,10 @@ class Board_new(Board):
         return peg_id, target_loc
 
     def step(self, player_id=0):
-        actions = self.get_availables(player_id)
-        peg_id, target_loc = self.greed_strategy(player_id, actions)
-        self.do_move(player_id, peg_id, target_loc)
-        self.graphic()
+        actions = self.get_availables()
+        action = self.greed_strategy(player_id, actions)
+        self.do_move(action)
+        # self.graphic()
         time.sleep(0.5)
 
     def self_play(self):
@@ -320,6 +346,8 @@ class Board_new(Board):
                 print('game end the winner is: {}'.format(winner))
                 break
             flag += 1
+        play_data = self.get_current_state()
+        return play_data
 
     def action_evaluate(self, player_id, peg_id, target_loc):
         peg_loc = self.players_pegs[player_id, peg_id]
@@ -348,6 +376,6 @@ class Board_new(Board):
 if __name__ == "__main__":
     b = Board_new()
     b.init_board()
-    b.self_play()
+    data = b.self_play()
 
 
