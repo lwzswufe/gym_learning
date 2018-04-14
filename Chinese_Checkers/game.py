@@ -18,9 +18,8 @@ import random
 
 
 class Game(object):
-    def __init__(self, board, players):
+    def __init__(self, board):
         self.board = board
-        self.players = players
 
     def self_play(self, players, is_shown=False):
         step = 0
@@ -34,9 +33,7 @@ class Game(object):
         while True:
             time_st = time.time()
             player_id = (step + rnd) % len(players)
-            # board.players_pegs = np.array([
-            #    [35, 29, 23, 34, 27, 33],
-            #    [0, 6, 15, 1, 7, 2]], dtype=np.int)
+
             # board.update_state()
             action = players[player_id].get_action(self.board)
             self.board.do_move(action)
@@ -52,6 +49,49 @@ class Game(object):
 
         print('usedtime: {:.4f}s  {:.4f}s'.format(used_time[0], used_time[1]))
         return winner, step
+
+    def get_self_play_data(self, players, is_shown=False):
+        step = 0
+        used_time = []
+        self.board.init_board()
+        rnd = round(random.random())
+        for i, player in enumerate(players):
+            player.player_id = (i + rnd) % 2
+            player.reset()
+            used_time.append(0)
+
+        states, probs_map, current_players = [], [], []
+        while True:
+            time_st = time.time()
+            player_id = (step + rnd) % len(players)
+
+            # board.update_state()
+            actions, probs = players[player_id].get_probs(self.board)
+            start_probs, end_probs = self.board.get_probs_map(actions, probs)
+            action = players[player_id].get_action(self.board, actions, probs)
+
+            states.append(self.board.get_current_state())
+            probs_map.append((start_probs, end_probs))
+            current_players.append(self.board.current_player_id)
+
+            self.board.do_move(action)
+            if is_shown:
+                self.board.graphic()
+            end, winner = self.board.game_end()
+            if end:
+                # print('game end the winner is: {} AI_name:{}'.format(winner, players[player_id].name))
+                # winner from the perspective of the current player of each state
+                winners_z = np.zeros(len(current_players))
+                if winner != -1:
+                    winners_z[np.array(current_players) == winner] = 1.0
+                    winners_z[np.array(current_players) != winner] = -1.0
+                # reset MCTS root node
+                if is_shown:
+                    if winner != -1:
+                        print("Game end. Winner is player:", winner)
+                    else:
+                        print("Game end. Tie")
+                return winner, zip(states, probs_map, winners_z)
 
 
 def self_play(board, players, is_shown=False):
@@ -75,8 +115,8 @@ def self_play(board, players, is_shown=False):
         if is_shown:
             board.graphic()
         end, winner = board.game_end()
-        winner = (winner + rnd) % 2
         if end:
+            winner = (winner + rnd) % 2
             print('game end the winner is: {} AI_name:{}'.format(winner, players[player_id].name))
             break
         step += 1
@@ -97,7 +137,6 @@ def main():
     # player_0 = MiniMaxTree(height=2, policy_fun=policy_value_fn_1, explore_num=3)
     # player_0 = MiniMaxTree(height=2)
 
-    g_s = Greedy_Strategy()
     player_1 = Greedy_Strategy
     # player_1 = MCTSPlayer(c_puct=30, n_playout=100)
     # player_1 = MiniMaxTree(height=4)
@@ -110,7 +149,8 @@ def play_repeat(repeat_time):
     player_0 = MiniMaxTree(height=2, explore_num=3, policy_fun=policy_value_fn_1)
 
     player_1 = Greedy_Strategy()
-    # player_1 = MiniMaxTree(height=4)
+    # player_1 = MiniMaxTree(height=4, explore_num=5, policy_fun=policy_value_fn_1)
+    # player_1 = MCTSPlayer(c_puct=50, n_playout=100)
     wins = 0
     step_mean = 0
     board = Board()
@@ -124,4 +164,9 @@ def play_repeat(repeat_time):
 
 if __name__ == '__main__':
     # main()
-    play_repeat(50)
+    # play_repeat(50)
+    player_0 = MiniMaxTree(height=2, explore_num=3, policy_fun=policy_value_fn_1)
+    player_1 = Greedy_Strategy()
+    g = Game(board=Board())
+    winner, data = g.get_self_play_data([player_0, player_1])
+    print('err')

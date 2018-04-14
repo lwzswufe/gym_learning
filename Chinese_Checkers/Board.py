@@ -85,6 +85,8 @@ class Board(object):
         board 初始化board
         :return:
         '''
+        self.last_move = None
+        self.step_n = 0
         self.players_pegs = np.zeros([2, self.pegs_num], dtype=np.int)
 
         pegs_list = itertools.product(range(self.pegs_size), range(self.pegs_size))
@@ -301,7 +303,7 @@ class Board(object):
         :return:
         '''
         player_id = self.current_player_id
-        square_state = np.zeros((4, self.board_size, self.board_size))
+        square_state = np.zeros([4, self.board_size, self.board_size])
 
         square_state[0][self.players_pegs[player_id, :] // self.board_size,
                         self.players_pegs[player_id, :] % self.board_size] = 1.0
@@ -310,12 +312,25 @@ class Board(object):
                         self.players_pegs[1 - player_id, :] % self.board_size] = 1.0
 
         # indicate the last move location
-        square_state[2][self.get_location(self.last_move[1])] = 1.0
+        if self.last_move is not None:
+            square_state[2][self.get_location(self.last_move[1])] = 1.0
 
         if self.current_player_id == 0:
             square_state[3][:, :] = 1.0  # 先手标记
 
         return square_state
+
+    def get_probs_map(self, actions, probs):
+        start_probs = np.zeros([self.board_size, self.board_size])
+        end_probs = np.zeros([self.board_size, self.board_size])
+        for i in range(len(actions)):
+            peg_id, target_loc = actions[i]
+            x, y = self.get_location(target_loc)
+            end_probs[x, y] = max(end_probs[x, y], probs[i])
+            x, y = self.get_location(self.players_pegs[self.current_player_id, peg_id])
+            start_probs[x, y] = max(start_probs[x, y], probs[i])
+
+        return start_probs, end_probs
 
 
 def list_to_net(size, pegs_list):

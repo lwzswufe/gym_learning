@@ -1,6 +1,7 @@
 # author='lwz'
 # coding:utf-8
 import random
+import numpy as np
 
 
 class AI_Player(object):
@@ -32,14 +33,25 @@ class Greedy_Strategy(AI_Player):
         else:
             return (x + y) - (x_ + y_)
 
-    def get_action(self, board):
+    def get_probs(self, board):
         actions = board.get_availables()
-        scores = list()
-        for action in actions:
+        scores = np.zeros(len(actions))
+        for i, action in enumerate(actions):
             score = self.action_evaluate(board, action)
-            scores.append(score)
+            scores[i] = score
 
-        max_score = max(scores)
-        actions_best = [actions[i] for i in range(len(scores)) if scores[i] >= max_score]
-        action = random.sample(actions_best, 1)[0]
+        probs = scores / sum(scores)
+        return actions, probs
+
+    def get_action(self, board, actions=None, probs=None):
+        if actions is None:
+            actions, probs = self.get_probs(board)
+
+        max_prob = max(probs)
+        actions_best = [i for i in range(len(probs)) if probs[i] >= max_prob]
+        action_id = random.sample(actions_best, 1)[0]
+        action = actions[action_id]
         return action
+
+    def reset(self):
+        pass

@@ -136,7 +136,18 @@ class MiniMaxTree(object):
         self.root = TreeNode(None, height, policy_fun)
         self.root.explore_num = explore_num
 
-    def get_action(self, board):
+    def get_action(self, board, actions=None, probs=None):
+        if actions is None:
+            actions, probs = self.get_probs(board)
+
+        action_id = np.random.choice(range(len(actions)), 1, p=probs)[0]
+        action = actions[action_id]
+        # board.graphic()
+        # self.show_all_choose()
+        self.reset()
+        return action
+
+    def get_probs(self, board):
         self.root.expand(board, None)
         actions = []
         scores = []
@@ -152,12 +163,7 @@ class MiniMaxTree(object):
         scores += 0.01
         p = np.power(np.array(scores), 5)
         p = p / sum(p)
-        action_id = np.random.choice(range(len(actions)), 1, p=p)
-        action = actions[action_id]
-        # board.graphic()
-        # self.show_all_choose()
-        self.reset()
-        return action
+        return actions, p
 
     def show_all_choose(self):
         for child in self.root._children:

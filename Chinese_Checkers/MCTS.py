@@ -163,7 +163,7 @@ class MCTS(object):
         self._policy = rollout_policy_fn
         self._c_puct = c_puct
         self._n_playout = n_playout
-        self.limit = 20
+        self.limit = 10
 
     def _playout(self, board):
         """Run a single playout from the root to the leaf, getting a value at
@@ -268,7 +268,8 @@ class MCTS(object):
         score_max = -np.inf
         for action in self._root._children.keys():
             node = self._root._children[action]
-            Q = node._Q
+            Q = node._n_visits
+            # Q = node._Q
             if node._n_visits == 0:
                 continue
             if Q > score_max:
@@ -282,6 +283,25 @@ class MCTS(object):
         action_id = random.randint(0, len(scores) - 1)
         action, Q_ = actions[action_id], scores[action_id]
         return action, Q_
+
+    def get_move_probs(self, state, temp=1e-3):
+        """
+        Run all playouts sequentially and return the available actions and
+        their corresponding probabilities.
+        state: the current game state
+        temp: temperature parameter in (0, 1] controls the level of exploration
+        """
+        for n in range(self._n_playout):
+            state_copy = copy.deepcopy(state)
+            self._playout(state_copy)
+
+        # calc the move probabilities based on visit counts at the root node
+        act_visits = [(act, node._n_visits)
+                      for act, node in self._root._children.items()]
+        acts, visits = zip(*act_visits)
+        act_probs = softmax(1.0/temp * np.log(np.array(visits) + 1e-10))
+
+        return acts, act_probs
 
 
 class MCTSPlayer(object):
