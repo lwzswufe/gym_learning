@@ -35,6 +35,7 @@ class Board(object):
         self.get_max_score()
         self.current_player_id = 0
         self.last_move = None
+        self.last_move_point = None
 
     def get_max_score(self):
         '''
@@ -86,6 +87,7 @@ class Board(object):
         :return:
         '''
         self.last_move = None
+        self.last_move_point = None
         self.step_n = 0
         self.players_pegs = np.zeros([2, self.pegs_num], dtype=np.int)
 
@@ -136,6 +138,22 @@ class Board(object):
         for i in range(self.pegs_num):
             next_locs = self.get_available(pegs_id=i)
             actions += list(zip([i] * len(next_locs), next_locs))
+        return actions
+
+    def get_availables_with_loc(self):
+        '''
+        获取玩家的所有可行动作 并附注坐标
+        :param player_id:
+        :return:
+        '''
+        actions = []
+        self.get_continuously_jump()
+        for i in range(self.pegs_num):
+            peg_loc = self.get_location(self.players_pegs[self.current_player_id, i])
+            next_loc_ids = self.get_available(pegs_id=i)
+            next_locs = [self.get_location(loc_id) for loc_id in next_loc_ids]
+            N = len(next_locs)
+            actions += list(zip([i] * N, next_loc_ids, [peg_loc] * N, next_locs))
         return actions
 
     def get_available(self, pegs_id):
@@ -265,6 +283,7 @@ class Board(object):
         self.step_n += 1
         self.current_player_id = self.step_n % self.player_num
         self.last_move = action
+        self.last_move_point = (self.get_location(loc_old), self.get_location(target_loc))
 
     def update_state(self):
         state = - np.ones(self.point_num, dtype=np.int)
@@ -303,7 +322,7 @@ class Board(object):
         :return:
         '''
         player_id = self.current_player_id
-        square_state = np.zeros([4, self.board_size, self.board_size])
+        square_state = np.zeros([5, self.board_size, self.board_size])
 
         square_state[0][self.players_pegs[player_id, :] // self.board_size,
                         self.players_pegs[player_id, :] % self.board_size] = 1.0
@@ -313,10 +332,11 @@ class Board(object):
 
         # indicate the last move location
         if self.last_move is not None:
-            square_state[2][self.get_location(self.last_move[1])] = 1.0
+            square_state[2][self.last_move_point[0]] = 1.0
+            square_state[3][self.last_move_point[1]] = 1.0
 
         if self.current_player_id == 0:
-            square_state[3][:, :] = 1.0  # 先手标记
+            square_state[4][:, :] = 1.0  # 先手标记
 
         return square_state
 
@@ -392,5 +412,7 @@ if __name__ == "__main__":
     b = Board_new()
     b.init_board()
     data = b.self_play()
+    actions_with_loc = b.get_availables_with_loc()
+    print('end')
 
 
