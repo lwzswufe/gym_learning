@@ -136,7 +136,7 @@ class PolicyValueNet(object):
         end_probs = np.exp(log_end_probs)
         return start_probs, end_probs, value
 
-    def policy_value_fn(self, board):
+    def policy_value_fn(self, board, actions):
         """
         input: board
         output: a list of (action, probability) tuples for each available
@@ -154,7 +154,7 @@ class PolicyValueNet(object):
         for i, action in enumerate(action_with_locs):
             peg_id, end_loc_id, start_loc, end_loc = action
             probs[i] = min(start_probs[start_loc], end_probs[end_loc])
-            actions.append(peg_id, end_loc_id)
+            actions.append((peg_id, end_loc_id))
 
         act_probs = zip(actions, probs)
         # act_probs  (point, prob) (点， 概率对)

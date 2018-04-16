@@ -22,7 +22,7 @@ def policy_value_fn_1(board, actions=None):
     scores += 0.01
     scores = np.power(scores, 5)
     if np.sum(scores) == 0:
-        print('err')
+        print('sum(scores) is 0')
 
     action_probs = scores * (1 / max(np.sum(scores), 1))
     return action_probs
@@ -65,7 +65,7 @@ class TreeNode(object):
             self.explore_num = parent.explore_num
             self.policy_value_fn = parent.policy_value_fn
         elif policy_value_fn is None:
-            print('err')
+            print('policy_value_fn is None')
         else:
             self.policy_value_fn = policy_value_fn
 
@@ -107,7 +107,7 @@ class TreeNode(object):
             for action_id in action_ids:
                 actions_.append(actions[action_id])
             if len(actions_) == 0:
-                print('err')
+                print('actions_ is empty')
             else:
                 actions = actions_
 

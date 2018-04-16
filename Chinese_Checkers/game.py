@@ -21,11 +21,14 @@ class Game(object):
     def __init__(self, board):
         self.board = board
 
-    def self_play(self, players, is_shown=False):
+    def self_play(self, players, is_shown=False, start_player=None):
         step = 0
         used_time = []
         self.board.init_board()
-        rnd = round(random.random())
+
+        if start_player is None:
+            rnd = round(random.random())
+
         for i, player in enumerate(players):
             player.player_id = (i + rnd) % 2
             used_time.append(0)
@@ -165,8 +168,7 @@ def play_repeat(repeat_time):
 if __name__ == '__main__':
     # main()
     # play_repeat(50)
-    player_0 = MiniMaxTree(height=2, explore_num=3, policy_fun=policy_value_fn_1)
+    player_0 = MiniMaxTree(height=2, explore_num=5, policy_fun=policy_value_fn_1)
     player_1 = Greedy_Strategy()
     g = Game(board=Board())
-    winner, data = g.get_self_play_data([player_0, player_1])
-    print('err')
+    winner, data = g.get_self_play_data([player_0, player_0], True)

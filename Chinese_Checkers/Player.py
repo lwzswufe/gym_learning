@@ -55,3 +55,14 @@ class Greedy_Strategy(AI_Player):
 
     def reset(self):
         pass
+
+
+def get_prob(player, board=None):
+    print(player.name)
+    return [], []
+
+
+if __name__ == "__main__":
+    player = AI_Player()
+    player.get_prob = get_prob
+    print(player.get_prob())

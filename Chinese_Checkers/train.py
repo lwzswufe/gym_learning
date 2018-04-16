@@ -11,17 +11,17 @@ import random
 import numpy as np
 from collections import defaultdict, deque
 from Chinese_Checkers.Board import Board
-from Chinese_Checkers.game import
-# from policy_value_net_pytorch import PolicyValueNet  # Pytorch
-from policy_value_net_tensorflow import PolicyValueNet # Tensorflow
-# from policy_value_net_keras import PolicyValueNet # Keras
+from Chinese_Checkers.game import Game
+from Chinese_Checkers.policy_value_tensorflow import PolicyValueNet  # Tensorflow
+from Chinese_Checkers.MinimaxTree import MiniMaxTree, policy_value_fn_1
 
 
 class Train():
-    def __init__(self, init_model, board, antagonist):
+    def __init__(self, init_model, board):
         # params of the board and the game
         self.board_width = 6
         self.board_height = 6
+        self.board_thick = 5
         self.n_in_row = 4
         self.board = board
         self.game = Game(self.board)
@@ -47,12 +47,14 @@ class Train():
             # start training from an initial policy-value net
             self.policy_value_net = PolicyValueNet(self.board_width,
                                                    self.board_height,
+                                                   self.board_thick,
                                                    model_file=init_model)
         else:
             # start training from a new policy-value net
             self.policy_value_net = PolicyValueNet(self.board_width,
-                                                   self.board_height)
-        self.antagonist = antagonist
+                                                   self.board_height,
+                                                   self.board_thick)
+        self.ai_player = MiniMaxTree(height=2, explore_num=3, policy_fun=self.policy_value_net.policy_value_fn)
 
     def get_equi_data(self, play_data):
         """
@@ -81,8 +83,7 @@ class Train():
     def collect_selfplay_data(self, n_games=1):
         """collect self-play data for training"""
         for i in range(n_games):
-            winner, play_data = self.game.start_self_play(self.mcts_player,
-                                                          temp=self.temp)
+            winner, play_data = self.game.get_self_play_data([self.ai_player, self.ai_player], is_shown=True)
             play_data = list(play_data)[:]
             self.episode_len = len(play_data)
             # augment the data
@@ -140,17 +141,16 @@ class Train():
         Evaluate the trained policy by playing against the pure MCTS player
         Note: this is only for monitoring the progress of training
         """
-        current_mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn,
-                                         c_puct=self.c_puct,
-                                         n_playout=self.n_playout)
-        pure_mcts_player = MCTS_Pure(c_puct=5,
-                                     n_playout=self.pure_mcts_playout_num)
+        current_player = MiniMaxTree(policy_fun=self.policy_value_net.policy_value_fn,
+                                         height=2,
+                                         explore_num=5)
+        pure_player = MiniMaxTree(policy_fun=self.policy_value_net.policy_value_fn,
+                                         height=2,
+                                         explore_num=5)
         win_cnt = defaultdict(int)
         for i in range(n_games):
-            winner = self.game.start_play(current_mcts_player,
-                                          pure_mcts_player,
-                                          start_player=i % 2,
-                                          is_shown=0)
+            winner = self.game.self_play([current_player, pure_player],
+                                          is_shown=False)
             win_cnt[winner] += 1
         win_ratio = 1.0*(win_cnt[1] + 0.5*win_cnt[-1]) / n_games
         print("num_playouts:{}, win: {}, lose: {}, tie:{}".format(
@@ -178,14 +178,14 @@ class Train():
                         self.best_win_ratio = win_ratio
                         # update the best_policy
                         self.policy_value_net.save_model('./best_policy.model')
-                        if (self.best_win_ratio == 1.0 and
-                                self.pure_mcts_playout_num < 5000):
-                            self.pure_mcts_playout_num += 1000
-                            self.best_win_ratio = 0.0
+                        # if (self.best_win_ratio == 1.0 and
+                        #        self.pure_mcts_playout_num < 5000):
+                        #    self.pure_mcts_playout_num += 1000
+                        #    self.best_win_ratio = 0.0
         except KeyboardInterrupt:
             print('\n\rquit')
 
 
 if __name__ == '__main__':
-    training_pipeline = TrainPipeline()
+    training_pipeline = Train(init_model=None, board=Board())
     training_pipeline.run()
