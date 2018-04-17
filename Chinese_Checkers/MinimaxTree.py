@@ -99,6 +99,14 @@ class TreeNode(object):
         actions = board.get_availables()
         scores = np.zeros(len(actions))
         probs = self.policy_value_fn(board, actions)
+        if isinstance(probs, tuple):
+            # 解析 策略估值网络返回的数据
+            probs, _ = probs
+            probs_ = np.zeros(len(actions))
+            for i, (action_, prob_) in enumerate(probs):
+                probs_[i] = prob_
+            probs = probs_
+            probs /= np.sum(probs)
 
         if self.explore_num > 0 and len(actions) > self.explore_num:
             action_ids = np.random.choice(range(len(actions)), size=self.explore_num, p=probs, replace=False)

@@ -143,26 +143,26 @@ class PolicyValueNet(object):
         action and the score of the board state
         传送估值网络给 mcts_player
         """
-        action_with_locs = board.availables_with_loc()
+        action_with_locs = board.get_availables_with_loc()
         # 列表 可下子点
-        current_state = np.ascontiguousarray(board.current_state().reshape(
+        current_state = np.ascontiguousarray(board.get_current_state().reshape(
                 -1, self.board_thick, self.board_width, self.board_height))
         start_probs, end_probs, value = self.policy_value(current_state)
 
         probs = np.zeros(len(action_with_locs))
         actions = []
         for i, action in enumerate(action_with_locs):
-            peg_id, end_loc_id, start_loc, end_loc = action
-            probs[i] = min(start_probs[start_loc], end_probs[end_loc])
+            peg_id, end_loc_id, start_loc_id = action
+            probs[i] = min(start_probs[0][start_loc_id], end_probs[0][end_loc_id])
             actions.append((peg_id, end_loc_id))
 
         act_probs = zip(actions, probs)
         # act_probs  (point, prob) (点， 概率对)
         return act_probs, value
 
-    def train_step(self, state_batch, probs, winner_batch, lr):
+    def train_step(self, state_batch, start_probs, end_probs, winner_batch, lr):
         """perform a training step"""
-        start_probs, end_probs = probs
+        # start_probs, end_probs = probs
         winner_batch = np.reshape(winner_batch, (-1, 1))
         loss, entropy, _ = self.session.run(
                 [self.loss, self.entropy, self.optimizer],

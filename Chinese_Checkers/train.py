@@ -94,16 +94,21 @@ class Train():
         """update the policy-value net"""
         mini_batch = random.sample(self.data_buffer, self.batch_size)
         state_batch = [data[0] for data in mini_batch]
-        mcts_probs_batch = [data[1] for data in mini_batch]
+        start_probs_batch = [data[1][0].flatten() for data in mini_batch]
+        end_probs_batch = [data[1][1].flatten() for data in mini_batch]
         winner_batch = [data[2] for data in mini_batch]
-        old_probs, old_v = self.policy_value_net.policy_value(state_batch)
+        start_probs, end_probs, old_v = self.policy_value_net.policy_value(state_batch)
+        old_probs = np.hstack((start_probs, end_probs))
+
         for i in range(self.epochs):
             loss, entropy = self.policy_value_net.train_step(
                     state_batch,
-                    mcts_probs_batch,
+                    start_probs_batch,
+                    end_probs_batch,
                     winner_batch,
                     self.learn_rate*self.lr_multiplier)
-            new_probs, new_v = self.policy_value_net.policy_value(state_batch)
+            start_probs, end_probs, new_v = self.policy_value_net.policy_value(state_batch)
+            new_probs = np.hstack((start_probs, end_probs))
             kl = np.mean(np.sum(old_probs * (
                     np.log(old_probs + 1e-10) - np.log(new_probs + 1e-10)),
                     axis=1)

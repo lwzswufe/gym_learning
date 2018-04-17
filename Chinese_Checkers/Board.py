@@ -149,11 +149,11 @@ class Board(object):
         actions = []
         self.get_continuously_jump()
         for i in range(self.pegs_num):
-            peg_loc = self.get_location(self.players_pegs[self.current_player_id, i])
+            peg_loc_id = self.players_pegs[self.current_player_id, i]
             next_loc_ids = self.get_available(pegs_id=i)
-            next_locs = [self.get_location(loc_id) for loc_id in next_loc_ids]
-            N = len(next_locs)
-            actions += list(zip([i] * N, next_loc_ids, [peg_loc] * N, next_locs))
+            # next_locs = [self.get_location(loc_id) for loc_id in next_loc_ids]
+            N = len(next_loc_ids)
+            actions += list(zip([i] * N, next_loc_ids, [peg_loc_id] * N))
         return actions
 
     def get_available(self, pegs_id):
