@@ -51,7 +51,7 @@ class Game(object):
             used_time[player_id] += time_ed - time_st
 
         print('usedtime: {:.4f}s  {:.4f}s'.format(used_time[0], used_time[1]))
-        return winner, step
+        return winner
 
     def get_self_play_data(self, players, is_shown=False):
         step = 0
@@ -151,8 +151,8 @@ def play_repeat(repeat_time):
     # player_0 = MCTSPlayer(c_puct=5, n_playout=100)
     player_0 = MiniMaxTree(height=2, explore_num=3, policy_fun=policy_value_fn_1)
 
-    player_1 = Greedy_Strategy()
-    # player_1 = MiniMaxTree(height=4, explore_num=5, policy_fun=policy_value_fn_1)
+    # player_1 = Greedy_Strategy()
+    player_1 = MiniMaxTree(height=4, explore_num=9, policy_fun=policy_value_fn_1)
     # player_1 = MCTSPlayer(c_puct=50, n_playout=100)
     wins = 0
     step_mean = 0
@@ -167,8 +167,8 @@ def play_repeat(repeat_time):
 
 if __name__ == '__main__':
     # main()
-    # play_repeat(50)
-    player_0 = MiniMaxTree(height=2, explore_num=5, policy_fun=policy_value_fn_1)
-    player_1 = Greedy_Strategy()
-    g = Game(board=Board())
-    winner, data = g.get_self_play_data([player_0, player_0], True)
+    play_repeat(200)
+    # player_0 = MiniMaxTree(height=2, explore_num=3, policy_fun=policy_value_fn_1)
+    # player_1 = Greedy_Strategy()
+    # g = Game(board=Board())
+    # winner, data = g.get_self_play_data([player_0, player_0], True)

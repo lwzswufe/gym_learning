@@ -83,7 +83,7 @@ class Train():
     def collect_selfplay_data(self, n_games=1):
         """collect self-play data for training"""
         for i in range(n_games):
-            winner, play_data = self.game.get_self_play_data([self.ai_player, self.ai_player], is_shown=True)
+            winner, play_data = self.game.get_self_play_data([self.ai_player, self.ai_player], is_shown=False)
             play_data = list(play_data)[:]
             self.episode_len = len(play_data)
             # augment the data
@@ -141,26 +141,27 @@ class Train():
                         explained_var_new))
         return loss, entropy
 
-    def policy_evaluate(self, n_games=10):
+    def policy_evaluate(self, n_games=20):
         """
         Evaluate the trained policy by playing against the pure MCTS player
         Note: this is only for monitoring the progress of training
         """
         current_player = MiniMaxTree(policy_fun=self.policy_value_net.policy_value_fn,
                                          height=2,
-                                         explore_num=5)
+                                         explore_num=10)
+        current_player.name = 'DQN player'
         pure_player = MiniMaxTree(policy_fun=self.policy_value_net.policy_value_fn,
-                                         height=2,
+                                         height=4,
                                          explore_num=5)
         win_cnt = defaultdict(int)
         for i in range(n_games):
             winner = self.game.self_play([current_player, pure_player],
                                           is_shown=False)
             win_cnt[winner] += 1
-        win_ratio = 1.0*(win_cnt[1] + 0.5*win_cnt[-1]) / n_games
-        print("num_playouts:{}, win: {}, lose: {}, tie:{}".format(
+        win_ratio = 1.0*(win_cnt[0]) / n_games
+        print("num_playouts:{}, win: {}, lose: {}".format(
                 self.pure_mcts_playout_num,
-                win_cnt[1], win_cnt[2], win_cnt[-1]))
+                win_cnt[0], win_cnt[1]))
         return win_ratio
 
     def run(self):
@@ -184,9 +185,9 @@ class Train():
                         # update the best_policy
                         self.policy_value_net.save_model('./best_policy.model')
                         # if (self.best_win_ratio == 1.0 and
-                        #        self.pure_mcts_playout_num < 5000):
-                        #    self.pure_mcts_playout_num += 1000
-                        #    self.best_win_ratio = 0.0
+                        #     self.pure_mcts_playout_num < 5000):
+                        #     self.pure_mcts_playout_num += 1000
+                        #     self.best_win_ratio = 0.0
         except KeyboardInterrupt:
             print('\n\rquit')
 
