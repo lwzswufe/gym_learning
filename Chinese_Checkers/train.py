@@ -14,6 +14,7 @@ from Chinese_Checkers.Board import Board
 from Chinese_Checkers.game import Game
 from Chinese_Checkers.policy_value_tensorflow import PolicyValueNet  # Tensorflow
 from Chinese_Checkers.MinimaxTree import MiniMaxTree, policy_value_fn_1
+from Chinese_Checkers.MCTS import MCTSPlayer
 
 
 class Train():
@@ -147,8 +148,9 @@ class Train():
         Note: this is only for monitoring the progress of training
         """
         current_player = MiniMaxTree(policy_fun=self.policy_value_net.policy_value_fn,
-                                         height=2,
-                                         explore_num=10)
+                                          height=1,
+                                          explore_num=10)
+        # current_player = MCTSPlayer(c_puct=5, n_playout=10, policy_fun=self.policy_value_net.policy_value_fn)
         current_player.name = 'DQN player'
         pure_player = MiniMaxTree(policy_fun=self.policy_value_net.policy_value_fn,
                                          height=4,

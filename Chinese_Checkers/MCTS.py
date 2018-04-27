@@ -10,6 +10,12 @@ from operator import itemgetter
 import random
 
 
+def softmax(x):
+    probs = np.exp(x - np.max(x))
+    probs /= np.sum(probs)
+    return probs
+
+
 def action_evaluate(board, action):
     player_id = board.current_player_id
     (peg_id, target_loc) = action
@@ -46,7 +52,7 @@ def policy_value_fn(board):
     # return uniform probabilities and 0 score for pure MCTS
     actions = board.get_availables()
     action_probs = np.ones(len(actions))/len(actions)
-    return zip(actions, action_probs), 0
+    return zip(actions, action_probs)
 
 
 def get_max_action(actions):
@@ -146,7 +152,7 @@ class TreeNode(object):
 class MCTS(object):
     """A simple implementation of Monte Carlo Tree Search."""
 
-    def __init__(self, policy_value_fn, c_puct=5, n_playout=1000):
+    def __init__(self, policy_fun=None, c_puct=5, n_playout=1000):
         """
         policy_value_fn: a function that takes in a board state and outputs
             a list of (action, probability) tuples and also a score in [-1, 1]
@@ -159,8 +165,11 @@ class MCTS(object):
         n_playout： 模拟运行打次数
         """
         self._root = TreeNode(None, 1.0)  # 当前节点  当前位置
-        # self._policy = policy_value_fn
-        self._policy = rollout_policy_fn
+        # self._policy = policy_fun
+        if policy_fun is None:
+            self._policy = self.policy_fun_default
+        else:
+            self._policy = policy_fun
         self._c_puct = c_puct
         self._n_playout = n_playout
         self.limit = 10
@@ -228,21 +237,28 @@ class MCTS(object):
         else:
             return -1
 
-    def get_action(self, board):
-        """
-        Runs all playouts sequentially and returns the most visited action.
-        state: the current game state
-
-        Return: the selected action [move, TreeNode]
-        """
+    def policy_fun_default(self):
         for n in range(self._n_playout):
-            board_copy = copy.deepcopy(board)
-            self._playout(board_copy)
+            state_copy = copy.deepcopy(state)
+            self._playout(state_copy)
 
-        if len(board.get_availables()) != len(self._root._children):
-            print('err')
+        # calc the move probabilities based on visit counts at the root node
+        act_visits = [(act, node._n_visits)
+                      for act, node in self._root._children.items()]
+        acts, visits = zip(*act_visits)
+        act_probs = np.power(np.array(visits), 4)
+        act_probs /= np.sum(act_probs)
+        return act_probs, act_probs
 
-        action, Q_ = self.get_prob()
+    def get_action(self, board, actions=None, probs=None):
+        if actions is None:
+            actions, probs = self.get_probs(board)
+
+        action_id = np.random.choice(range(len(actions)), 1, p=probs)[0]
+        action = actions[action_id]
+        # board.graphic()
+        # self.show_all_choose()
+        # self.reset()
         return action
 
     def update_with_move(self, last_move):
@@ -262,29 +278,7 @@ class MCTS(object):
     def __str__(self):
         return "MCTS"
 
-    def get_prob(self):
-        scores = []
-        actions = []
-        score_max = -np.inf
-        for action in self._root._children.keys():
-            node = self._root._children[action]
-            Q = node._n_visits
-            # Q = node._Q
-            if node._n_visits == 0:
-                continue
-            if Q > score_max:
-                scores = [Q]
-                actions = [action]
-            elif Q == score_max:
-                scores.append(Q)
-                actions.append(action)
-
-        # print(Q)
-        action_id = random.randint(0, len(scores) - 1)
-        action, Q_ = actions[action_id], scores[action_id]
-        return action, Q_
-
-    def get_move_probs(self, state, temp=1e-3):
+    def get_probs(self, state):
         """
         Run all playouts sequentially and return the available actions and
         their corresponding probabilities.
@@ -299,7 +293,7 @@ class MCTS(object):
         act_visits = [(act, node._n_visits)
                       for act, node in self._root._children.items()]
         acts, visits = zip(*act_visits)
-        act_probs = softmax(1.0/temp * np.log(np.array(visits) + 1e-10))
+        act_probs = softmax(1.0/1e-3 * np.log(np.array(visits) + 1e-10))
 
         return acts, act_probs
 
@@ -308,7 +302,7 @@ class MCTSPlayer(object):
     """AI player based on MCTS"""
     name = 'MCTS'
 
-    def __init__(self, c_puct=5, n_playout=1000):
+    def __init__(self, c_puct=5, n_playout=1000, policy_fun=None):
         self.mcts = MCTS(policy_value_fn, c_puct, n_playout)
 
     def set_player_ind(self, player_id):

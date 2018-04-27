@@ -44,7 +44,8 @@ class Game(object):
                 self.board.graphic()
             end, winner = self.board.game_end()
             if end:
-                print('game end the winner is: {} AI_name:{}'.format(winner, players[player_id].name))
+                winner = (winner + rnd) % 2
+                print('game end the winner is: {} AI_name:{}'.format(winner, players[winner].name))
                 break
             step += 1
             time_ed = time.time()
@@ -82,6 +83,7 @@ class Game(object):
                 self.board.graphic()
             end, winner = self.board.game_end()
             if end:
+                winner = (winner + rnd) % 2
                 # print('game end the winner is: {} AI_name:{}'.format(winner, players[player_id].name))
                 # winner from the perspective of the current player of each state
                 winners_z = np.zeros(len(current_players))
@@ -120,7 +122,7 @@ def self_play(board, players, is_shown=False):
         end, winner = board.game_end()
         if end:
             winner = (winner + rnd) % 2
-            print('game end the winner is: {} AI_name:{}'.format(winner, players[player_id].name))
+            print('game end the winner is: {} AI_name:{}'.format(winner, players[winner].name))
             break
         step += 1
         time_ed = time.time()
@@ -148,12 +150,13 @@ def main():
 
 def play_repeat(repeat_time):
     # player_0 = MiniMaxTree(height=2, policy_fun=policy_value_fn_1, explore_num=5)
-    # player_0 = MCTSPlayer(c_puct=5, n_playout=100)
-    player_0 = MiniMaxTree(height=2, explore_num=3, policy_fun=policy_value_fn_1)
+    # player_0 = MCTSPlayer(c_puct=1, n_playout=5)
+    player_0 = MiniMaxTree(height=2, explore_num=10, policy_fun=policy_value_fn_1)
+    player_0.name = '00000'
 
     # player_1 = Greedy_Strategy()
-    player_1 = MiniMaxTree(height=4, explore_num=9, policy_fun=policy_value_fn_1)
-    # player_1 = MCTSPlayer(c_puct=50, n_playout=100)
+    player_1 = MiniMaxTree(height=1, explore_num=10, policy_fun=policy_value_fn_1)
+    # player_1 = MCTSPlayer(c_puct=5, n_playout=2)
     wins = 0
     step_mean = 0
     board = Board()
@@ -167,7 +170,7 @@ def play_repeat(repeat_time):
 
 if __name__ == '__main__':
     # main()
-    play_repeat(200)
+    play_repeat(20)
     # player_0 = MiniMaxTree(height=2, explore_num=3, policy_fun=policy_value_fn_1)
     # player_1 = Greedy_Strategy()
     # g = Game(board=Board())

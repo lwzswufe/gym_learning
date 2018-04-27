@@ -40,6 +40,8 @@ class Greedy_Strategy(AI_Player):
             score = self.action_evaluate(board, action)
             scores[i] = score
 
+        scores -= np.min(scores)
+        scores += 0.01
         probs = scores / sum(scores)
         return actions, probs
 

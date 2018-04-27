@@ -108,7 +108,7 @@ class TreeNode(object):
             probs = probs_
             probs /= np.sum(probs)
 
-        if self.explore_num > 0 and len(actions) > self.explore_num:
+        if len(actions) > self.explore_num > 0:
             action_ids = np.random.choice(range(len(actions)), size=self.explore_num, p=probs, replace=False)
             scores = np.zeros(len(action_ids))
             actions_ = []
