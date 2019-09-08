@@ -1,3 +1,4 @@
+# coding:utf-8
 import numpy as np
 import scipy
 import gym
@@ -6,6 +7,8 @@ import gym
 def play_once(env, policy):
     '''
     运行一回合
+    env 环境
+    policy 位置-方向矩阵  表示在某个位置选择某个方向的概率
     '''
     total_reward = 0
     state = env.reset()
@@ -25,6 +28,8 @@ def play_once(env, policy):
 def evaluate_bellman(env, policy, gamma=1.):
     '''
     求解 Bellman 期望方程
+    env 环境
+    policy 位置-方向矩阵  表示在某个位置选择某个方向的概率
     '''
     a, b = np.eye(env.nS), np.zeros((env.nS))
     for state in range(env.nS - 1):
@@ -45,6 +50,7 @@ def evaluate_bellman(env, policy, gamma=1.):
 def optimal_bellman(env, gamma=1.):
     '''
     求解 Bellman 最优方程
+    env 环境
     '''
     p = np.zeros((env.nS, env.nA, env.nS))
     r = np.zeros((env.nS, env.nA))
