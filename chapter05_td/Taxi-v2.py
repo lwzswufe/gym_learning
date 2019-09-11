@@ -1,11 +1,36 @@
 # coding:utf-8
+from abc import abstractmethod
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import gym
 
 
-class SARSAAgent:
+class BaseAgent(object):
+    '''
+    智能体类
+    '''
+    @abstractmethod
+    def decide(self, state):
+        '''
+        决策函数
+        state 当前状态
+        '''
+
+    @abstractmethod
+    def learn(self, state, action, reward, next_state, done, next_action):
+        '''
+        学习函数
+        state       状态
+        action      动作
+        reward      奖励
+        next_state  下一状态
+        done        是否完成
+        next_action 下一动作
+        '''
+
+
+class SARSAAgent(BaseAgent):
     '''
     SARSA 算法
     智能体类
@@ -72,7 +97,7 @@ def play_sarsa(env, agent, train=False, render=False):
     return episode_reward
 
 
-class ExpectedSARSAAgent:
+class ExpectedSARSAAgent(BaseAgent):
     '''
     期望 SARSA
     '''
@@ -173,13 +198,9 @@ class QLearningAgent:
         self.q[state, action] += self.learning_rate * (u - self.q[state, action])
 
 
-class DoubleQLearningAgent:
+class DoubleQLearningAgent(QLearningAgent):
     def __init__(self, env, gamma=0.9, learning_rate=0.15, epsilon=.01):
-        self.gamma = gamma
-        self.learning_rate = learning_rate
-        self.epsilon = epsilon
-        self.action_n = env.action_space.n
-        self.q0 = np.zeros((env.observation_space.n, env.action_space.n))
+        super().__init__(env, gamma, learning_rate, epsilon)
         self.q1 = np.zeros((env.observation_space.n, env.action_space.n))
 
     def decide(self, state):
@@ -189,7 +210,7 @@ class DoubleQLearningAgent:
         返回 动作
         '''
         if np.random.uniform() > self.epsilon:
-            action = (self.q0 + self.q1)[state].argmax()
+            action = (self.q + self.q1)[state].argmax()
         else:
             action = np.random.randint(self.action_n)
         return action
@@ -206,10 +227,10 @@ class DoubleQLearningAgent:
         '''
         # 等概率随机选择q0 q1 进行训练
         if np.random.randint(2):
-            self.q0, self.q1 = self.q1, self.q0
-        a = self.q0[next_state].argmax()
+            self.q, self.q1 = self.q1, self.q
+        a = self.q[next_state].argmax()
         u = reward + self.gamma * self.q1[next_state, a] * (1. - done)
-        self.q0[state, action] += self.learning_rate * (u - self.q0[state, action])
+        self.q[state, action] += self.learning_rate * (u - self.q[state, action])
 
 
 class SARSALambdaAgent(SARSAAgent):
