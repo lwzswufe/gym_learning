@@ -66,11 +66,10 @@ class TileCoder:
         ints   动作  
         返回 features 不同层次的编码的位置1*feature_num的向量
         '''
-        dim = len(floats)
         scaled_floats = tuple(f * self.layers * self.layers for f in floats)
         features = []
         for layer in range(self.layers):
-            codeword = (layer,) + tuple(int((f + (1 + dim * i) * layer) / self.layers) for i, f in enumerate(scaled_floats)) + ints
+            codeword = (layer,) + tuple(int((f + layer) / self.layers) for f in scaled_floats) + ints
             feature = self.get_feature(codeword)
             features.append(feature)
         return features
@@ -142,6 +141,30 @@ class SARSAAgent:
         self.w[features] += (self.learning_rate * td_error)
 
 
+class SARSALambdaAgent(SARSAAgent):
+    '''
+    SARSA(λ)算法
+    '''
+    def __init__(self, env, layers=8, features=1893, gamma=1.,
+                 learning_rate=0.03, epsilon=0.001, lambd=0.9):
+        super().__init__(env=env, layers=layers, features=features,
+                         gamma=gamma, learning_rate=learning_rate, epsilon=epsilon)
+        self.lambd = lambd
+        self.z = np.zeros(features)  # 初始化资格迹
+
+    def learn(self, observation, action, reward, next_observation, done, next_action):
+        u = reward
+        if not done:
+            u += (self.gamma * self.get_q(next_observation, next_action))
+            self.z *= (self.gamma * self.lambd)
+            features = self.encode(observation, action)
+            self.z[features] = 1.  # 替换迹
+        td_error = u - self.get_q(observation, action)
+        self.w += (self.learning_rate * td_error * self.z)
+        if done:
+            self.z = np.zeros_like(self.z)  # 为下一回合初始化资格迹
+
+
 def play_sarsa(env, agent, train=False, render=False):
     '''
     智能体环境交互逻辑
@@ -195,6 +218,52 @@ def main():
     agent.epsilon = 0.  # 取消探索
     episode_rewards = [play_sarsa(env, agent) for _ in range(100)]
     print('平均回合奖励 = {} / {} = {}'.format(sum(episode_rewards), len(episode_rewards), np.mean(episode_rewards)))
+
+    print(">>>>>>>>>>>>>>>>>>>>SARSA(λ) 算法<<<<<<<<<<<<<<<<<<<<<")
+    agent = SARSALambdaAgent(env)
+
+    # 训练
+    episodes = 150
+    episode_rewards = []
+    for episode in range(episodes):
+        episode_reward = play_sarsa(env, agent, train=True)
+        episode_rewards.append(episode_reward)
+    plt.plot(episode_rewards)
+
+    # 测试
+    agent.epsilon = 0.  # 取消探索
+    episode_rewards = [play_sarsa(env, agent) for _ in range(100)]
+    print('平均回合奖励 = {} / {} = {}'.format(sum(episode_rewards), len(episode_rewards), np.mean(episode_rewards)))
+
+    poses = np.linspace(env.unwrapped.min_position, env.unwrapped.max_position, 128)
+    vels = np.linspace(-env.unwrapped.max_speed, env.unwrapped.max_speed, 128)
+    positions, velocities = np.meshgrid(poses, vels)
+
+    @np.vectorize
+    def get_q(position, velocity, action):
+        return agent.get_q((position, velocity), action)
+
+    q_values = np.empty((len(poses), len(vels), 3))
+    for action in range(3):
+        q_values[:, :, action] = get_q(positions, velocities, action)
+
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+    for action, ax in enumerate(axes):
+        c = ax.pcolormesh(positions, velocities, q_values[:, :, action])
+        ax.set_xlabel('position')
+        ax.set_ylabel('velocity')
+        fig.colorbar(c, ax=ax)
+        ax.set_title('action = {}'.format(action))
+
+    # 绘制状态价值估计
+
+    v_values = q_values.max(axis=-1)
+
+    fig, ax = plt.subplots(1, 1)
+    c = ax.pcolormesh(positions, velocities, v_values)
+    ax.set_xlabel('position')
+    ax.set_ylabel('velocity')
+    fig.colorbar(c, ax=ax)
 
 
 if __name__ == "__main__":
