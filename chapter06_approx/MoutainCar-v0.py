@@ -274,9 +274,11 @@ class DQNAgent:
         self.replayer.store(observation, action, reward, next_observation, done)
         # 经验回放
         observations, actions, rewards, next_observations, dones = self.replayer.sample(self.batch_size)
+        # 目标网络计算学习的目标 us
         next_qs = self.target_net.predict(next_observations)
         next_max_qs = next_qs.max(axis=-1)
         us = rewards + self.gamma * (1. - dones) * next_max_qs
+        # 评估网路 向目标us学习
         targets = self.evaluate_net.predict(observations)
         targets[np.arange(us.shape[0]), actions] = us
         self.evaluate_net.fit(observations, targets, verbose=0)
@@ -319,14 +321,22 @@ def play_qlearning(env, agent, train=False, render=False):
 
 
 class DoubleDQNAgent(DQNAgent):
+    '''
+    双重深度 Q 网络
+    '''
     def learn(self, observation, action, reward, next_observation, done):
-        self.replayer.store(observation, action, reward, next_observation, done)  # 存储经验
-        observations, actions, rewards, next_observations, dones = self.replayer.sample(self.batch_size)  # 经验回放
+        # 存储经验
+        self.replayer.store(observation, action, reward, next_observation, done)
+        # 经验回放
+        observations, actions, rewards, next_observations, dones = self.replayer.sample(self.batch_size)
+        # 评估网路 确定动作
         next_eval_qs = self.evaluate_net.predict(next_observations)
         next_actions = next_eval_qs.argmax(axis=-1)
+        # 目标网络计算学习的目标 us 回报
         next_qs = self.target_net.predict(next_observations)
         next_max_qs = next_qs[np.arange(next_qs.shape[0]), next_actions]
         us = rewards + self.gamma * next_max_qs * (1. - dones)
+        # 评估网路 向目标us学习
         targets = self.evaluate_net.predict(observations)
         targets[np.arange(us.shape[0]), actions] = us
         self.evaluate_net.fit(observations, targets, verbose=0)
@@ -345,85 +355,85 @@ def main():
     print('位置范围 = {}'.format((env.unwrapped.min_position, env.unwrapped.max_position)))
     print('速度范围 = {}'.format((-env.unwrapped.max_speed, env.unwrapped.max_speed)))
     print('目标位置 = {}'.format(env.unwrapped.goal_position))
-    # print(">>>>>>>>>>>>>>>>>>>>一直向右<<<<<<<<<<<<<<<<<<<<<")
-    # always_right(env)
+    print(">>>>>>>>>>>>>>>>>>>>一直向右<<<<<<<<<<<<<<<<<<<<<")
+    always_right(env)
 
-    # agent = SARSAAgent(env)
-    # print(">>>>>>>>>>>>>>>>>>>>SARSA 算法<<<<<<<<<<<<<<<<<<<<<")
-    # # 训练
-    # episodes = 500
-    # episode_rewards = []
-    # for episode in range(episodes):
-    #     episode_reward = play_sarsa(env, agent, train=True)
-    #     episode_rewards.append(episode_reward)
-    # plt.plot(episode_rewards)
-    # plt.show()
-    # # 测试
-    # agent.epsilon = 0.  # 取消探索
-    # episode_rewards = [play_sarsa(env, agent) for _ in range(100)]
-    # print('平均回合奖励 = {} / {} = {}'.format(sum(episode_rewards), len(episode_rewards), np.mean(episode_rewards)))
+    agent = SARSAAgent(env)
+    print(">>>>>>>>>>>>>>>>>>>>SARSA 算法<<<<<<<<<<<<<<<<<<<<<")
+    # 训练
+    episodes = 500
+    episode_rewards = []
+    for episode in range(episodes):
+        episode_reward = play_sarsa(env, agent, train=True)
+        episode_rewards.append(episode_reward)
+    plt.plot(episode_rewards)
+    plt.show()
+    # 测试
+    agent.epsilon = 0.  # 取消探索
+    episode_rewards = [play_sarsa(env, agent) for _ in range(100)]
+    print('平均回合奖励 = {} / {} = {}'.format(sum(episode_rewards), len(episode_rewards), np.mean(episode_rewards)))
 
-    # print(">>>>>>>>>>>>>>>>>>>>SARSA(λ) 算法<<<<<<<<<<<<<<<<<<<<<")
-    # agent = SARSALambdaAgent(env)
+    print(">>>>>>>>>>>>>>>>>>>>SARSA(λ) 算法<<<<<<<<<<<<<<<<<<<<<")
+    agent = SARSALambdaAgent(env)
 
-    # # 训练
-    # episodes = 150
-    # episode_rewards = []
-    # for episode in range(episodes):
-    #     episode_reward = play_sarsa(env, agent, train=True)
-    #     episode_rewards.append(episode_reward)
-    # plt.plot(episode_rewards)
-    # plt.show()
-    # # 测试
-    # agent.epsilon = 0.  # 取消探索
-    # episode_rewards = [play_sarsa(env, agent) for _ in range(100)]
-    # print('平均回合奖励 = {} / {} = {}'.format(sum(episode_rewards), len(episode_rewards), np.mean(episode_rewards)))
+    # 训练
+    episodes = 150
+    episode_rewards = []
+    for episode in range(episodes):
+        episode_reward = play_sarsa(env, agent, train=True)
+        episode_rewards.append(episode_reward)
+    plt.plot(episode_rewards)
+    plt.show()
+    # 测试
+    agent.epsilon = 0.  # 取消探索
+    episode_rewards = [play_sarsa(env, agent) for _ in range(100)]
+    print('平均回合奖励 = {} / {} = {}'.format(sum(episode_rewards), len(episode_rewards), np.mean(episode_rewards)))
 
-    # poses = np.linspace(env.unwrapped.min_position, env.unwrapped.max_position, 128)
-    # vels = np.linspace(-env.unwrapped.max_speed, env.unwrapped.max_speed, 128)
-    # positions, velocities = np.meshgrid(poses, vels)
+    poses = np.linspace(env.unwrapped.min_position, env.unwrapped.max_position, 128)
+    vels = np.linspace(-env.unwrapped.max_speed, env.unwrapped.max_speed, 128)
+    positions, velocities = np.meshgrid(poses, vels)
 
-    # @np.vectorize
-    # def get_q(position, velocity, action):
-    #     return agent.get_q((position, velocity), action)
+    @np.vectorize
+    def get_q(position, velocity, action):
+        return agent.get_q((position, velocity), action)
 
-    # q_values = np.empty((len(poses), len(vels), 3))
-    # for action in range(3):
-    #     q_values[:, :, action] = get_q(positions, velocities, action)
+    q_values = np.empty((len(poses), len(vels), 3))
+    for action in range(3):
+        q_values[:, :, action] = get_q(positions, velocities, action)
 
-    # fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-    # for action, ax in enumerate(axes):
-    #     c = ax.pcolormesh(positions, velocities, q_values[:, :, action])
-    #     ax.set_xlabel('position')
-    #     ax.set_ylabel('velocity')
-    #     fig.colorbar(c, ax=ax)
-    #     ax.set_title('action = {}'.format(action))
-    # plt.show()
-    # # 绘制状态价值估计
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+    for action, ax in enumerate(axes):
+        c = ax.pcolormesh(positions, velocities, q_values[:, :, action])
+        ax.set_xlabel('position')
+        ax.set_ylabel('velocity')
+        fig.colorbar(c, ax=ax)
+        ax.set_title('action = {}'.format(action))
+    plt.show()
+    # 绘制状态价值估计
 
-    # v_values = q_values.max(axis=-1)
+    v_values = q_values.max(axis=-1)
 
-    # fig, ax = plt.subplots(1, 1)
-    # c = ax.pcolormesh(positions, velocities, v_values)
-    # ax.set_xlabel('position')
-    # ax.set_ylabel('velocity')
-    # fig.colorbar(c, ax=ax)
-    # plt.show()
+    fig, ax = plt.subplots(1, 1)
+    c = ax.pcolormesh(positions, velocities, v_values)
+    ax.set_xlabel('position')
+    ax.set_ylabel('velocity')
+    fig.colorbar(c, ax=ax)
+    plt.show()
 
-    # # 绘制动作估计
-    # @np.vectorize
-    # def decide(position, velocity):
-    #     return agent.decide((position, velocity))
+    # 绘制动作估计
+    @np.vectorize
+    def decide(position, velocity):
+        return agent.decide((position, velocity))
 
-    # q_values = np.empty((len(poses), len(vels), 3))
-    # action_values = decide(positions, velocities)
+    q_values = np.empty((len(poses), len(vels), 3))
+    action_values = decide(positions, velocities)
 
-    # fig, ax = plt.subplots()
-    # c = ax.pcolormesh(positions, velocities, action_values)
-    # ax.set_xlabel('position')
-    # ax.set_ylabel('velocity')
-    # fig.colorbar(c, ax=ax, boundaries=[-.5, .5, 1.5, 2.5], ticks=[0, 1, 2])
-    # plt.show()
+    fig, ax = plt.subplots()
+    c = ax.pcolormesh(positions, velocities, action_values)
+    ax.set_xlabel('position')
+    ax.set_ylabel('velocity')
+    fig.colorbar(c, ax=ax, boundaries=[-.5, .5, 1.5, 2.5], ticks=[0, 1, 2])
+    plt.show()
 
     print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>DQN<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
     net_kwargs = {'hidden_sizes': [16, ], 'learning_rate': 0.01}
