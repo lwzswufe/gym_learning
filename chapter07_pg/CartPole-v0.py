@@ -15,7 +15,7 @@ class VPGAgent:
         self.action_n = env.action_space.n
         self.gamma = gamma
         self.trajectory = []
-
+        self.train_times = 0
         self.policy_net = self.build_network(output_size=self.action_n,
                                              output_activation=tf.nn.softmax,
                                              loss=tf.losses.categorical_crossentropy,
@@ -40,7 +40,7 @@ class VPGAgent:
 
     def decide(self, observation):
         '''
-        决策函数 
+        决策函数
         @param: observation 观测值
         return  action      动作
         '''
@@ -80,8 +80,9 @@ class VPGAgent:
             y = np.eye(self.action_n)[df['action']] * df['psi'].values[:, np.newaxis]
             # 策略学习
             self.policy_net.fit(x, y, verbose=0)
+            self.train_times += 1
             # 为下一回合初始化经验列表
-            self.trajectory = []  
+            self.trajectory = []
 
 
 def play_montecarlo(env, agent, render=False, train=False):
@@ -118,8 +119,7 @@ class RandomAgent:
 
     def decide(self, observation):
         action = np.random.choice(self.action_n)
-        behavior = 1. / self.action_n
-        return action, behavior
+        return action
 
 
 class OffPolicyVPGAgent(VPGAgent):
@@ -131,6 +131,7 @@ class OffPolicyVPGAgent(VPGAgent):
         self.gamma = gamma
 
         self.trajectory = []
+        self.train_times = 0
 
         def dot(y_true, y_pred):
             return -tf.reduce_sum(y_true * y_pred, axis=-1)
@@ -172,10 +173,52 @@ class OffPolicyVPGAgent(VPGAgent):
             # 策略学习
             self.policy_net.fit(x, y, verbose=0)
             # 为下一回合初始化经验列表
-            self.trajectory = []  
+            self.train_times += 1
+            self.trajectory = []
 
 
-def show_episode_rewards(episode_rewards):
+def train(env, agent, play_fun):
+    # 训练
+    episodes = 500
+    episode_rewards = []
+    for episode in range(episodes):
+        episode_reward = play_fun(env, agent, train=True)
+        episode_rewards.append(episode_reward)
+    plt.plot(episode_rewards)
+    plt.show()
+
+    # 测试
+    episode_rewards = [play_fun(env, agent, train=False) for _ in range(100)]
+    print('平均回合奖励 = {} / {} = {}'.format(sum(episode_rewards), len(episode_rewards), np.mean(episode_rewards)))
+
+
+def train_off_strategy(env, learn_agent, behavior_agent, play_fun):
+    # 训练
+    episodes = 500
+    episode_rewards = []
+    for episode in range(episodes):
+        observation = env.reset()
+        episode_reward = 0.
+        while True:
+            # 行为策略决策
+            action = behavior_agent.decide(observation)
+            # 重要性采样
+            behavior = 1 / behavior_agent.action_n
+            next_observation, reward, done, _ = env.step(action)
+            episode_reward += reward
+            # 策略学习
+            learn_agent.learn(observation, action, behavior, reward, done)
+            if done:
+                break
+            observation = next_observation
+        # 跟踪监控
+        episode_reward = play_montecarlo(env, learn_agent, train=False)
+        episode_rewards.append(episode_reward)
+
+    plt.plot(episode_rewards)
+    plt.show()
+    # 测试
+    episode_rewards = [play_montecarlo(env, learn_agent, train=False) for _ in range(100)]
     print('平均回合奖励 = {} / {} = {}'.format(sum(episode_rewards), len(episode_rewards), np.mean(episode_rewards)))
 
 
@@ -186,98 +229,34 @@ def main():
     env.seed(0)
 
     print(">>>>>>>>>>>>>>>>>>>>>>不带基线的简单策略梯度算法<<<<<<<<<<<<<<<<<<<<<<")
-    policy_kwargs = {'hidden_sizes': [10, ], 'activation': tf.nn.relu, 'learning_rate': 0.008}
-    agent = VPGAgent(env, policy_kwargs=policy_kwargs)
-
-    # 训练
-    episodes = 500
-    episode_rewards = []
-    for episode in range(episodes):
-        episode_reward = play_montecarlo(env, agent, train=True)
-        episode_rewards.append(episode_reward)
-    plt.plot(episode_rewards)
-
-    # 测试
-    episode_rewards = [play_montecarlo(env, agent, train=False) for _ in range(100)]
-    show_episode_rewards(episode_rewards)
+    policy_kwargs = {'hidden_sizes': [10, ], 'activation': tf.nn.relu, 'learning_rate': 0.004}
+    single_agent = VPGAgent(env, policy_kwargs=policy_kwargs)
+    train(env, single_agent, play_montecarlo)
 
     print(">>>>>>>>>>>>>>>>>>>>>>带基线的简单策略梯度算法<<<<<<<<<<<<<<<<<<<<<<")
-    policy_kwargs = {'hidden_sizes': [10, ], 'activation': tf.nn.relu, 'learning_rate': 0.008}
-    baseline_kwargs = {'hidden_sizes': [10, ], 'activation': tf.nn.relu, 'learning_rate': 0.008}
-    agent = VPGAgent(env, policy_kwargs=policy_kwargs, baseline_kwargs=baseline_kwargs)
-
-    # 训练
-    episodes = 500
-    episode_rewards = []
-    for episode in range(episodes):
-        episode_reward = play_montecarlo(env, agent, train=True)
-        episode_rewards.append(episode_reward)
-    plt.plot(episode_rewards)
-
-    # 测试
-    episode_rewards = [play_montecarlo(env, agent, train=False) for _ in range(100)]
-    show_episode_rewards(episode_rewards)
+    policy_kwargs = {'hidden_sizes': [10, ], 'activation': tf.nn.relu, 'learning_rate': 0.001}
+    baseline_kwargs = {'hidden_sizes': [10, ], 'activation': tf.nn.relu, 'learning_rate': 0.001}
+    base_agent = VPGAgent(env, policy_kwargs=policy_kwargs, baseline_kwargs=baseline_kwargs)
+    train(env, base_agent, play_montecarlo)
 
     print(">>>>>>>>>>>>>>>>>>>>>>不带基线的异策略梯度算法<<<<<<<<<<<<<<<<<<<<<<")
     policy_kwargs = {'hidden_sizes': [10, ], 'activation': tf.nn.relu, 'learning_rate': 0.02}
-    agent = OffPolicyVPGAgent(env, policy_kwargs=policy_kwargs)
-    behavior_agent = RandomAgent(env)
-
-    # 训练
-    episodes = 500
-    episode_rewards = []
-    for episode in range(episodes):
-        observation = env.reset()
-        episode_reward = 0.
-        while True:
-            # 行为策略决策
-            action, behavior = behavior_agent.decide(observation)
-            next_observation, reward, done, _ = env.step(action)
-            episode_reward += reward
-            # 策略学习
-            agent.learn(observation, action, behavior, reward, done)
-            if done:
-                break
-            observation = next_observation
-        # 跟踪监控
-        episode_reward = play_montecarlo(env, agent, train=False)
-        episode_rewards.append(episode_reward)
-
-    plt.plot(episode_rewards)
-
-    # 测试
-    episode_rewards = [play_montecarlo(env, agent, train=False) for _ in range(100)]
-    show_episode_rewards(episode_rewards)
+    off_agent = OffPolicyVPGAgent(env, policy_kwargs=policy_kwargs)
+    random_agent = RandomAgent(env)
+    train_off_strategy(env, off_agent, random_agent, play_montecarlo)
 
     print(">>>>>>>>>>>>>>>>>>>>>>带基线的异策略梯度算法<<<<<<<<<<<<<<<<<<<<<<")
     policy_kwargs = {'hidden_sizes': [10, ], 'activation': tf.nn.relu, 'learning_rate': 0.02}
     baseline_kwargs = {'hidden_sizes': [10, ], 'activation': tf.nn.relu, 'learning_rate': 0.03}
-    agent = OffPolicyVPGAgent(env, policy_kwargs=policy_kwargs, baseline_kwargs=baseline_kwargs)
-    behavior_agent = RandomAgent(env)
+    base_off_agent = OffPolicyVPGAgent(env, policy_kwargs=policy_kwargs, baseline_kwargs=baseline_kwargs)
+    train_off_strategy(env, base_off_agent, random_agent, play_montecarlo)
 
-    # 训练
-    episodes = 500
-    episode_rewards = []
-    for episode in range(episodes):
-        observation = env.reset()
-        episode_reward = 0.
-        while True:
-            action, behavior = behavior_agent.decide(observation)
-            next_observation, reward, done, _ = env.step(action)
-            episode_reward += reward
-            agent.learn(observation, action, behavior, reward, done)
-            if done:
-                break
-            observation = next_observation
-        # 跟踪监控
-        episode_reward = play_montecarlo(env, agent, train=False)
-        episode_rewards.append(episode_reward)
-
-    plt.plot(episode_rewards)
-
-    # 测试
-    episode_rewards = [play_montecarlo(env, agent, train=False) for _ in range(100)]
-    show_episode_rewards(episode_rewards)
+    print(">>>>>>>>>>>>>>>>>>>>>>使用训练好的智能体 带基线的异策略梯度算法<<<<<<<<<<<<<<<<<<<<<<")
+    policy_kwargs = {'hidden_sizes': [10, ], 'activation': tf.nn.relu, 'learning_rate': 0.001}
+    baseline_kwargs = {'hidden_sizes': [10, ], 'activation': tf.nn.relu, 'learning_rate': 0.001}
+    # base_off_agent = OffPolicyVPGAgent(env, policy_kwargs=policy_kwargs, baseline_kwargs=baseline_kwargs)
+    train_off_strategy(env, base_off_agent, base_agent, play_montecarlo)
+    print("behavior_agent train_times:{} learn_agent train_times: {}".format(base_agent.train_times, base_off_agent.train_times))
 
 
 if __name__ == "__main__":

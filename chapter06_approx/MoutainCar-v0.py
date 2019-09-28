@@ -63,7 +63,7 @@ class TileCoder:
         '''
         将观测值向量转化为 坐标
         floats 特征值 向量  即观测值映射从[下界,上界]到[0, 1]的映射 分位数
-        ints   动作  
+        ints   动作
         返回 features 不同层次的编码的位置1*feature_num的向量
         '''
         scaled_floats = tuple(f * self.layers * self.layers for f in floats)
