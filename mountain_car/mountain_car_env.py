@@ -25,7 +25,7 @@ class MountainCarEnv(gym.Env):
         self.force = 0.001                  # 推力加速度
         self.gravity = 0.0025               # 重力加速度
         self.time = 0.0                     # 系统时间
-        self.last_action_time = 0.0         # 上一次系统行动时间
+        self.continuous_time = False
 
         self.low = np.array([self.min_position, -self.max_speed])
         self.high = np.array([self.max_position, self.max_speed])
@@ -41,7 +41,7 @@ class MountainCarEnv(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def step(self, action, time_interval=1.0):
+    def step(self, action):
         '''
         智能体行动
         action  动作 -1 0 1
@@ -49,7 +49,12 @@ class MountainCarEnv(gym.Env):
         '''
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
 
-        position, velocity, time_ = self.state
+        if self.continuous_time:
+            time_interval = np.random.rand() * 0.2
+        else:
+            time_interval = True
+
+        position, velocity, self.time = self.state
         # 更新小车水平方向速度 考虑(重力加速度 与 与智能体的推力)
         velocity += ((action - 1) * self.force + math.cos(3 * position) * (-self.gravity)) * time_interval
         velocity = np.clip(velocity, -self.max_speed, self.max_speed)
@@ -61,11 +66,13 @@ class MountainCarEnv(gym.Env):
             velocity = 0
         # 到达目标位置 且速度大于指定速度 就认为达到目标
         done = bool(position >= self.goal_position and velocity >= self.goal_velocity)
+        if (self.time > 1000.0):
+            done = True
         # 每一步的奖励 即总用时
         reward = -1.0 * time_interval
-        time_ += time_interval
-        self.state = (position, velocity, time_)
-        return np.array(self.state), reward, done, {}
+        self.time += time_interval
+        self.state = (position, velocity, self.time)
+        return np.array(self.state), reward, done, time_interval
 
     def reset(self):
         '''
