@@ -1,6 +1,5 @@
 # coding:utf-8
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from mountain_car_env import MountainCarEnv
 
@@ -137,6 +136,33 @@ class SARSALambdaAgent(SARSAAgent):
             self.z = np.zeros_like(self.z)  # 为下一回合初始化资格迹
 
 
+class DiffAgent(SARSAAgent):
+    '''
+    异策略回合更新策略寻找最优策略
+    '''
+    def __init__(self, env, layers=8, features=1893, gamma=1., learning_rate=0.03, epsilon=0.001):
+        SARSAAgent.__init__(self, env, layers, features, gamma, learning_rate, epsilon)
+        self.c = np.zeros_like(self.w)
+        self.layer_n = layers
+
+    def learn(self, trajectory):
+        '''
+        学习函数
+        observation  状态观测值 位置 速度
+        action      动作
+        reward      奖励
+        next_state  下一状态 观测值
+        done        是否完成
+        next_action 下一动作
+        '''
+        rho = np.ones(self.layer_n)
+        for observation, action, reward, time_interval, next_observation, done, next_action in reversed(trajectory):
+            features = self.encode(observation, action)
+            self.c[features] += rho / self.layers
+            self.w[features] += rho / self.c[features] * (reward - self.w[features].sum())
+            rho *= (self.w[features] / self.w[features])
+
+
 def play_sarsa(env, agent, train=False, render=False, collect_ex=False):
     '''
     智能体环境交互逻辑
@@ -184,37 +210,55 @@ def train(env, agent, play_fun):
     episodes = 100
     sum_rewards = 0.0
     for episode in range(episodes):
-        sum_rewards += play_fun(env, agent, train=False)
+        episode_reward, trajectory = play_fun(env, agent, train=False)
+        sum_rewards += episode_reward
         # print("train {}/{}".format(episode + 1, episodes))
 
     print('平均回合奖励 = {} / {} = {}'.format(sum_rewards, episodes, sum_rewards / episodes))
 
 
-def train_off_line(env, learn_agent, behavior_agent, play_fun):
+def train_off_line(env, agent, trajectory):
+    '''
+    训练离线策略
+    '''
+    episode_reward = 0.0
+    agent.learn(trajectory)
+    observation = env.reset()
+    action = agent.decide(observation)
+    done = False
+    while not done:
+        next_observation, reward, done, time_interval = env.step(action)
+        episode_reward += reward
+        next_action = agent.decide(next_observation)  # 终止状态时此步无意义
+        observation, action = next_observation, next_action
+    return episode_reward
+
+
+def train_difference_strayegy(env, learn_agent, behavior_agent, play_fun, train_fun):
     # 训练
     env.continuous_time = True
     episodes = 500
     episode_rewards = []
-    trajectory_list = []
     for episode in range(episodes):
-        episode_reward, trajectory = play_fun(env, learn_agent, train=True)
-        if episode >= 100:
-            episode_rewards.append(episode_reward)
-        trajectory_list += trajectory
-        # print("train {}/{}".format(episode + 1, episodes))
+        episode_reward, trajectory = play_fun(env, behavior_agent, train=True)
+        episode_reward = train_fun(env, learn_agent, trajectory)
+        episode_rewards.append(episode_reward)
+
     plt.plot(episode_rewards)
     plt.show()
 
     # 测试
     env.continuous_time = False
-    agent.epsilon = 0.0
+    learn_agent.epsilon = 0.0
     episodes = 100
     sum_rewards = 0.0
     for episode in range(episodes):
-        sum_rewards += play_fun(env, agent, train=False)
+        episode_reward, trajectory = play_fun(env, learn_agent, train=False)
+        sum_rewards += episode_reward
         # print("train {}/{}".format(episode + 1, episodes))
 
     print('平均回合奖励 = {} / {} = {}'.format(sum_rewards, episodes, sum_rewards / episodes))
+
 
 def main():
     np.random.seed(0)
@@ -228,6 +272,11 @@ def main():
     lambda_agent = SARSALambdaAgent(env)
     print(">>>>>>>>>>>>>>>>>>>>SARSA(λ) 算法<<<<<<<<<<<<<<<<<<<<<")
     train(env, lambda_agent, play_sarsa)
+
+    diff_agent = DiffAgent(env)
+    lambda_agent.epsilon = 0.5
+    print(">>>>>>>>>>>>>>>>>>>>SARSA(λ) 算法<<<<<<<<<<<<<<<<<<<<<")
+    train_difference_strayegy(env, diff_agent, lambda_agent, play_sarsa, train_off_line)
 
 
 if __name__ == "__main__":

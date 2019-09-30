@@ -50,7 +50,7 @@ class MountainCarEnv(gym.Env):
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
 
         if self.continuous_time:
-            time_interval = np.random.rand() * 0.2
+            time_interval = np.random.rand() * 1.0
         else:
             time_interval = True
 
