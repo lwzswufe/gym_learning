@@ -52,7 +52,7 @@ class MountainCarEnv(gym.Env):
         if self.continuous_time:
             time_interval = np.random.rand() * 1.0
         else:
-            time_interval = True
+            time_interval = 1.0
 
         position, velocity, self.time = self.state
         # 更新小车水平方向速度 考虑(重力加速度 与 与智能体的推力)
