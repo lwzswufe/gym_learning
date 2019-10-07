@@ -366,6 +366,8 @@ class VPGAgent(Agent):
             df['discount'] = self.gamma ** df.index.to_series()
             df['discounted_reward'] = df['discount'] * df['reward']
             df['discounted_return'] = df['discounted_reward'][::-1].cumsum()
+            df['derivative'] = df['discounted_return'] - df['q']
+            df['discounted_derivative'] = (df['discount'] * df['derivative'])
             # G = df['discounted_return']
             df['psi'] = df['discounted_return']
 
@@ -380,7 +382,7 @@ class VPGAgent(Agent):
             #     y = df['return'].values[:, np.newaxis]
 
             # 策略学习
-            loss = df['discounted_return'] - df['q']
+            loss = df['discounted_derivative']
             for i in range(self.layers):
                 self.w[fertures_array[:, i]] += self.learning_rate * loss
             # 为下一回合初始化经验列表
@@ -428,7 +430,8 @@ def play_learn_at_done(env, agent, train=False, render=False, collect_ex=False):
     '''
     observation = env.reset()
     episode_reward = 0.
-    while True:
+    done = False
+    while not done:
         if render:
             env.render()
         action = agent.decide(observation)
@@ -436,8 +439,6 @@ def play_learn_at_done(env, agent, train=False, render=False, collect_ex=False):
         episode_reward += reward
         if train:
             agent.learn(observation, action, reward, done)
-        if done:
-            break
         observation = next_observation
     return episode_reward, []
 
@@ -450,7 +451,7 @@ def train(env, agent, play_fun):
     for episode in range(episodes):
         episode_reward, _ = play_fun(env, agent, train=True)
         episode_rewards.append(episode_reward)
-
+        print("{}/{} sum_w:{:.2f} score:{:.2f}".format(episode, episodes, np.sum(np.sum(agent.w)), episode_reward))
     plt.plot(episode_rewards)
     plt.show()
 
@@ -545,10 +546,10 @@ def main():
     # print(">>>>>>>>>>>>>>>>>>>>SARSA 算法<<<<<<<<<<<<<<<<<<<<<")
     # train(env, sarsa_agent, play_sarsa)
 
-    vpg_agent = VPGAgent(env)
+    vpg_agent = VPGAgent(env, gamma=1.0)
     print(">>>>>>>>>>>>>>>>>>>>VPG 算法<<<<<<<<<<<<<<<<<<<<<")
     train(env, vpg_agent, play_learn_at_done)
-
+    return 0
     # lambda_agent = SARSALambdaAgent(env)
     # print(">>>>>>>>>>>>>>>>>>>>SARSA(λ) 算法<<<<<<<<<<<<<<<<<<<<<")
     # train(env, lambda_agent, play_sarsa)
