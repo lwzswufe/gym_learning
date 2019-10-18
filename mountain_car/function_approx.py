@@ -79,6 +79,38 @@ class TileCoder:
         return features
 
 
+class TileCoderMAT(TileCoder):
+    '''
+    砖瓦编码
+    '''
+    def __init__(self, layers, feature_n, action_n):
+        '''
+        layers     要用到几层砖瓦编码
+        features   砖瓦编码应该得到多少特征
+        '''
+        self.layers = layers
+        self.feature_n = feature_n
+        self.codeword_w = np.ones(feature_n + 2)
+        self.codeword_w[0] = action_n
+        for i in range(self.feature_n):
+            self.codeword_w[i + 1] = self.codeword_w[i] * layers
+
+    def __call__(self, floats=(), ints=()):
+        '''
+        将观测值向量转化为 坐标
+        floats 特征值 向量  即观测值映射从[下界,上界]到[0, 1]的映射 分位数
+        ints   动作
+        返回 features 不同层次的编码的位置1*feature_num的向量
+        '''
+        scaled_floats = tuple(f * self.layers * self.layers for f in floats)
+        features = []
+        for layer in range(self.layers):
+            codeword = (layer,) + tuple(int((f + layer) / self.layers) for f in scaled_floats) + ints
+            feature = np.array(codeword) @ self.codeword_w
+            features.append(feature)
+        return features
+
+
 class Agent:
     '''
     智能体
